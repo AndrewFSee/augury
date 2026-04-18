@@ -18,6 +18,10 @@ class MarkovSwitchingGARCH:
     Uses statsmodels MarkovRegression to identify regimes with
     distinct mean and variance parameters.
 
+    After fitting, states are re-ordered by ascending variance so that
+    state 0 is always the calm (low-vol) regime, matching the HMM
+    anchoring convention.
+
     Args:
         k_regimes: Number of regimes.
         switching_variance: Allow variance to switch between regimes.
@@ -34,6 +38,7 @@ class MarkovSwitchingGARCH:
         self.switching_variance = switching_variance
         self.switching_mean = switching_mean
         self._result: Any = None
+        self._label_order: np.ndarray | None = None
 
     def fit(self, returns: np.ndarray) -> MarkovSwitchingGARCH:
         """Fit the Markov-Switching model.
@@ -62,6 +67,7 @@ class MarkovSwitchingGARCH:
             switching_trend=self.switching_mean,
         )
         self._result = model.fit(disp=False)
+        self._anchor_labels()
         logger.info(
             f"MarkovSwitchingGARCH fitted: {self.k_regimes} regimes, "
             f"AIC={self._result.aic:.4f}"
@@ -96,21 +102,70 @@ class MarkovSwitchingGARCH:
             Array of shape (n, k_regimes) with smoothed probabilities.
         """
         self._check_fitted()
-        return np.asarray(self._result.smoothed_marginal_probabilities)
+        probs = np.asarray(self._result.smoothed_marginal_probabilities)
+        return probs[:, self._label_order]
+
+    def predict_proba_filtered(self, returns: np.ndarray) -> np.ndarray:  # noqa: ARG002
+        """Return Hamilton-filtered regime probabilities (no look-ahead).
+
+        Uses ``filtered_marginal_probabilities`` from the statsmodels
+        result, where P(state_t | x_1 ... x_t) depends only on past
+        and current observations.
+
+        Args:
+            returns: 1-D array of log returns (ignored; filtered probs
+                from training used — statsmodels does not support
+                out-of-sample filtering).
+
+        Returns:
+            Array of shape (n, k_regimes) with filtered probabilities.
+        """
+        self._check_fitted()
+        probs = np.asarray(self._result.filtered_marginal_probabilities)
+        return probs[:, self._label_order]
+
+    def predict_filtered(self, returns: np.ndarray) -> np.ndarray:
+        """Predict regime labels using Hamilton-filtered probabilities.
+
+        Args:
+            returns: 1-D array of log returns.
+
+        Returns:
+            Integer array of regime labels.
+        """
+        proba = self.predict_proba_filtered(returns)
+        return np.argmax(proba, axis=1)
 
     def get_regime_params(self) -> dict[int, dict[str, float]]:
         """Return fitted mean and variance for each regime.
 
         Returns:
             Dict mapping regime index to {'mu': float, 'sigma': float}.
+            State 0 is always the lowest-variance (calm) regime.
         """
         self._check_fitted()
+        if self._label_order is None:
+            self._anchor_labels()
+        param_map = dict(
+            zip(self._result.model.data.param_names, self._result.params, strict=False)
+        )
         params: dict[int, dict[str, float]] = {}
-        for i in range(self.k_regimes):
-            mu = float(self._result.params.get(f"const[{i}]", 0.0))
-            var = float(self._result.params.get(f"sigma2[{i}]", 1.0))
-            params[i] = {"mu": mu, "sigma": float(np.sqrt(var))}
+        for new_idx, orig_idx in enumerate(self._label_order):
+            mu = float(param_map.get(f"const[{orig_idx}]", 0.0))
+            var = float(param_map.get(f"sigma2[{orig_idx}]", 1.0))
+            params[new_idx] = {"mu": mu, "sigma": float(np.sqrt(var))}
         return params
+
+    def _anchor_labels(self) -> None:
+        """Compute state ordering by ascending variance."""
+        param_map = dict(
+            zip(self._result.model.data.param_names, self._result.params, strict=False)
+        )
+        variances = np.array([
+            float(param_map.get(f"sigma2[{i}]", 1.0))
+            for i in range(self.k_regimes)
+        ])
+        self._label_order = np.argsort(variances)
 
     def _check_fitted(self) -> None:
         if self._result is None:

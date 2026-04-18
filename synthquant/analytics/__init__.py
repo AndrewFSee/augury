@@ -15,6 +15,7 @@ from synthquant.analytics.risk_metrics import (
     value_at_risk,
 )
 from synthquant.analytics.scoring import ForecastScorer
+from synthquant.analytics.synth_scoring import SynthScorer, SynthScoreResult
 
 __all__ = [
     "EmpiricalDistribution",
@@ -29,4 +30,6 @@ __all__ = [
     "MCOptionPricer",
     "ImpliedVolSurface",
     "ForecastScorer",
+    "SynthScorer",
+    "SynthScoreResult",
 ]

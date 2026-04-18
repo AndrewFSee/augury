@@ -52,6 +52,11 @@ class WalkForwardBacktest:
         train_window: Number of periods in the training window.
         rebalance_freq: Number of periods between rebalances.
         transaction_cost: One-way transaction cost as a fraction.
+        embargo: Gap (in periods) between the end of the training window
+            and the first out-of-sample period. Defends against feature
+            leakage when training inputs use rolling windows that could
+            extend across the train/test boundary. Default 0 (the base
+            loop already enforces a one-period lag).
     """
 
     def __init__(
@@ -59,10 +64,12 @@ class WalkForwardBacktest:
         train_window: int = 252,
         rebalance_freq: int = 21,
         transaction_cost: float = 0.001,
+        embargo: int = 0,
     ) -> None:
         self.train_window = train_window
         self.rebalance_freq = rebalance_freq
         self.transaction_cost = transaction_cost
+        self.embargo = max(0, int(embargo))
 
     def run(
         self,
@@ -89,10 +96,12 @@ class WalkForwardBacktest:
         current_weights = np.ones(n_assets) / n_assets
         n_trades = 0
 
-        for t in range(self.train_window, n_periods):
+        start = self.train_window + self.embargo
+        for t in range(start, n_periods):
             # Rebalance at specified frequency
-            if (t - self.train_window) % self.rebalance_freq == 0:
-                train_prices = prices.iloc[t - self.train_window: t]
+            if (t - start) % self.rebalance_freq == 0:
+                train_end = t - self.embargo
+                train_prices = prices.iloc[train_end - self.train_window: train_end]
                 new_weights = strategy_fn(train_prices)
                 new_weights = np.asarray(new_weights, dtype=float)
                 new_weights = np.clip(new_weights, 0, None)

@@ -70,3 +70,7 @@ dmypy.json
 .synthquant/
 *.parquet
 data_cache/
+_*_output.txt
+_test_results.txt
+_mv_hmm_run.txt
+.claude/

@@ -121,6 +121,7 @@ class RiskParityAllocator:
 
         for _ in range(self.max_iter):
             mrc = sigma @ w  # Marginal Risk Contribution
+            mrc = np.maximum(mrc, 1e-12)  # guard against zero-variance assets
             # Update weights proportional to inverse marginal risk
             w_new = w / mrc
             w_new /= w_new.sum()

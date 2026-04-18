@@ -104,6 +104,18 @@ class ClusteringRegimeDetector:
             X = X.reshape(-1, 1)
         return self._model.predict_proba(X)
 
+    def predict_proba_filtered(self, features: np.ndarray) -> np.ndarray:
+        """Filtered probabilities — identical to predict_proba for GMM.
+
+        GMM classifies each observation independently (no temporal model),
+        so there is no smoothing look-ahead to remove.
+        """
+        return self.predict_proba(features)
+
+    def predict_filtered(self, features: np.ndarray) -> np.ndarray:
+        """Filtered labels — identical to predict for GMM."""
+        return self.predict(features)
+
     def get_regime_params(self) -> dict[int, dict[str, Any]]:
         """Return fitted GMM parameters for each component.
 

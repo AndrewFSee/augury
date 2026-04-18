@@ -189,7 +189,7 @@ class MCOptionPricer:
 
 def _bs_call(S: float, K: float, T: float, r: float, sigma: float) -> float:
     """Black-Scholes European call price."""
-    if sigma <= 0 or T <= 0:
+    if sigma < 1e-8 or T < 1e-10:
         return max(S - K * np.exp(-r * T), 0.0)
     d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
