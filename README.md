@@ -21,38 +21,93 @@
 
 Walk-forward VaR backtest on SPY (2014–2026, 3,088 days). Each model is re-fit every 21 days on a rolling 504-day window.
 
-> **GJR-skewt** is the only model that passes all regulatory and statistical tests.
+> **GJR-skewt** is the only model that passes all regulatory and statistical tests at the 1% level.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  1% VaR MODEL COMPARISON  ·  Expected violations ≈ 31 / 3,088 days        │
-├──────────────────┬────────────┬──────────┬───────────┬───────────┬──────────┤
-│  Model           │ Violations │   Rate   │ Kupiec p  │ Christ. p │  Basel   │
-├──────────────────┼────────────┼──────────┼───────────┼───────────┼──────────┤
-│  Historical      │     53     │  1.72%   │   0.000   │   0.000   │ 🟡 Yellow│
-│  Normal          │     91     │  2.95%   │   0.000   │   0.000   │ 🔴 Red   │
-│  Student-t       │     62     │  2.01%   │   0.000   │   0.000   │ 🔴 Red   │
-│  GARCH-Normal    │     68     │  2.20%   │   0.000   │   0.689   │ 🔴 Red   │
-│  GJR-skewt       │  ✅ 40     │  1.30%   │ ✅ 0.115  │ ✅ 0.547  │ 🟢 Green │
-│  GJR-VIX         │     16     │  0.52%   │   0.003   │   1.000   │ 🟢 Green │
-└──────────────────┴────────────┴──────────┴───────────┴───────────┴──────────┘
-```
+<table>
+<thead>
+<tr>
+<th colspan="6">1% VaR Model Comparison &nbsp;·&nbsp; Expected violations ≈ 31 / 3,088 days</th>
+</tr>
+<tr>
+<th>Model</th>
+<th align="center">Violations</th>
+<th align="center">Rate</th>
+<th align="center">Kupiec <i>p</i></th>
+<th align="center">Christoffersen <i>p</i></th>
+<th align="center">Basel Zone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Historical</td>
+<td align="center">53</td>
+<td align="center">1.72%</td>
+<td align="center">0.000</td>
+<td align="center">0.000</td>
+<td align="center"><img src="https://img.shields.io/badge/Yellow-eab308?style=flat-square" alt="Yellow"></td>
+</tr>
+<tr>
+<td>Normal</td>
+<td align="center">91</td>
+<td align="center">2.95%</td>
+<td align="center">0.000</td>
+<td align="center">0.000</td>
+<td align="center"><img src="https://img.shields.io/badge/Red-ef4444?style=flat-square" alt="Red"></td>
+</tr>
+<tr>
+<td>Student-t</td>
+<td align="center">62</td>
+<td align="center">2.01%</td>
+<td align="center">0.000</td>
+<td align="center">0.000</td>
+<td align="center"><img src="https://img.shields.io/badge/Red-ef4444?style=flat-square" alt="Red"></td>
+</tr>
+<tr>
+<td>GARCH-Normal</td>
+<td align="center">68</td>
+<td align="center">2.20%</td>
+<td align="center">0.000</td>
+<td align="center">0.689</td>
+<td align="center"><img src="https://img.shields.io/badge/Red-ef4444?style=flat-square" alt="Red"></td>
+</tr>
+<tr>
+<td><b>GJR-skewt</b></td>
+<td align="center"><b>40 ✅</b></td>
+<td align="center"><b>1.30%</b></td>
+<td align="center"><b>0.115 ✅</b></td>
+<td align="center"><b>0.547 ✅</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Green-22c55e?style=flat-square" alt="Green"></td>
+</tr>
+<tr>
+<td>GJR-VIX</td>
+<td align="center">16</td>
+<td align="center">0.52%</td>
+<td align="center">0.003</td>
+<td align="center">1.000</td>
+<td align="center"><img src="https://img.shields.io/badge/Green-22c55e?style=flat-square" alt="Green"></td>
+</tr>
+</tbody>
+</table>
 
 <details>
-<summary><strong>Crisis Period Performance (COVID, 2022 Bear, Aug 2024)</strong></summary>
+<summary><b>Crisis Period Performance (COVID, 2022 Bear, Aug 2024)</b></summary>
+<br>
 
-```
-COVID Crash (Feb–Mar 2020, 24 days)
-  Model            Violations   Rate    Worst Loss   VaR@Worst
-  Normal                   12  50.0%      -10.94%      -2.49%    ← missed half the days
-  GJR-skewt                 1   4.2%      -10.94%     -19.41%    ← caught the crash
-  GJR-VIX                   1   4.2%      -10.94%     -17.79%
+**COVID Crash** (Feb–Mar 2020, 24 trading days)
 
-2022 Bear Market (Jan–Oct, 196 days)
-  Normal                   12   6.1%       -4.35%      -2.59%
-  GJR-skewt                 3   1.5%       -4.35%      -3.51%
-  GJR-VIX                   1   0.5%       -4.35%      -3.89%
-```
+| Model | Violations | Rate | Worst Loss | VaR @ Worst | |
+|:------|:----------:|:----:|:----------:|:-----------:|:--|
+| Normal | 12 | 50.0% | −10.94% | −2.49% | ← missed half the days |
+| **GJR-skewt** | **1** | **4.2%** | −10.94% | **−19.41%** | ← caught the crash |
+| GJR-VIX | 1 | 4.2% | −10.94% | −17.79% | |
+
+**2022 Bear Market** (Jan–Oct, 196 trading days)
+
+| Model | Violations | Rate | Worst Loss | VaR @ Worst |
+|:------|:----------:|:----:|:----------:|:-----------:|
+| Normal | 12 | 6.1% | −4.35% | −2.59% |
+| **GJR-skewt** | **3** | **1.5%** | −4.35% | **−3.51%** |
+| GJR-VIX | 1 | 0.5% | −4.35% | −3.89% |
 
 </details>
 
@@ -60,41 +115,53 @@ COVID Crash (Feb–Mar 2020, 24 days)
 
 European call prices and implied volatility surface across 13 strikes × 3 maturities, comparing GJR-GARCH, Heston stochastic vol, and Black-Scholes.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  IMPLIED VOL SMILE  ·  63-day maturity  ·  SPY @ $710.67                   │
-├────────────┬─────────┬─────────┬─────────┬──────────┬──────────────────────┤
-│  Moneyness │   BS    │  GARCH  │ Heston  │  GCH-BS  │  Observation         │
-├────────────┼─────────┼─────────┼─────────┼──────────┼──────────────────────┤
-│     85%    │  13.3%  │  48.1%  │  15.9%  │ +34.8pp  │  Deep OTM put skew  │
-│     90%    │  13.3%  │  39.7%  │  15.4%  │ +26.4pp  │                      │
-│     95%    │  13.3%  │  32.1%  │  14.4%  │ +18.8pp  │                      │
-│    100%    │  13.3%  │  25.7%  │  13.4%  │ +12.4pp  │  ATM                 │
-│    105%    │  13.3%  │  20.7%  │  13.9%  │  +7.4pp  │                      │
-│    110%    │  13.3%  │  17.7%  │  15.0%  │  +4.4pp  │  OTM call wing       │
-│    115%    │  13.3%  │  17.1%  │  15.9%  │  +3.8pp  │  Smile uptick        │
-└────────────┴─────────┴─────────┴─────────┴──────────┴──────────────────────┘
-```
+<table>
+<thead>
+<tr>
+<th colspan="6">Implied Volatility Smile &nbsp;·&nbsp; 63-day maturity &nbsp;·&nbsp; SPY @ $710.67</th>
+</tr>
+<tr>
+<th align="center">Moneyness</th>
+<th align="center">Black-Scholes</th>
+<th align="center">GARCH</th>
+<th align="center">Heston</th>
+<th align="center">GARCH − BS</th>
+<th>Observation</th>
+</tr>
+</thead>
+<tbody>
+<tr><td align="center">85%</td><td align="center">13.3%</td><td align="center">48.1%</td><td align="center">15.9%</td><td align="center">+34.8 pp</td><td>Deep OTM put skew</td></tr>
+<tr><td align="center">90%</td><td align="center">13.3%</td><td align="center">39.7%</td><td align="center">15.4%</td><td align="center">+26.4 pp</td><td></td></tr>
+<tr><td align="center">95%</td><td align="center">13.3%</td><td align="center">32.1%</td><td align="center">14.4%</td><td align="center">+18.8 pp</td><td></td></tr>
+<tr><td align="center"><b>100%</b></td><td align="center"><b>13.3%</b></td><td align="center"><b>25.7%</b></td><td align="center"><b>13.4%</b></td><td align="center"><b>+12.4 pp</b></td><td><b>ATM</b></td></tr>
+<tr><td align="center">105%</td><td align="center">13.3%</td><td align="center">20.7%</td><td align="center">13.9%</td><td align="center">+7.4 pp</td><td></td></tr>
+<tr><td align="center">110%</td><td align="center">13.3%</td><td align="center">17.7%</td><td align="center">15.0%</td><td align="center">+4.4 pp</td><td>OTM call wing</td></tr>
+<tr><td align="center">115%</td><td align="center">13.3%</td><td align="center">17.1%</td><td align="center">15.9%</td><td align="center">+3.8 pp</td><td>Smile uptick</td></tr>
+</tbody>
+</table>
 
 > **Key insight**: GJR-GARCH naturally produces the volatility skew observed in real options markets — OTM puts are expensive because asymmetric GARCH makes negative returns increase vol more than positive returns. Black-Scholes (flat vol) misses this entirely.
 
 <details>
-<summary><strong>Greeks & Exotic Options</strong></summary>
+<summary><b>Greeks & Exotic Options</b></summary>
+<br>
 
-```
-Greeks (3-month ATM call)
-                       BS      GARCH     Heston
-         Delta     0.577     0.784     0.599
-         Gamma   0.00828   0.00512   0.01042
-          Vega     139.1     210.4     167.1
+**Greeks** (3-month ATM call)
 
-Exotic Options (3-month, GARCH model)
-  Type                            Price  vs European
-  European Call                   40.10     baseline
-  Asian Call (avg price)          21.11      -47.4%
-  Down-Out Put (B=640)             3.19      -75.7%
-  Up-Out Call (B=782)             15.90      -60.4%
-```
+| | Black-Scholes | GARCH | Heston |
+|:-----|:----------:|:-----:|:------:|
+| Delta | 0.577 | 0.784 | 0.599 |
+| Gamma | 0.00828 | 0.00512 | 0.01042 |
+| Vega | 139.1 | 210.4 | 167.1 |
+
+**Exotic Options** (3-month, GARCH model)
+
+| Type | Price | vs European |
+|:-----|------:|:-----------:|
+| European Call | $40.10 | baseline |
+| Asian Call (avg price) | $21.11 | −47.4% |
+| Down-Out Put (B=640) | $3.19 | −75.7% |
+| Up-Out Call (B=782) | $15.90 | −60.4% |
 
 </details>
 
@@ -102,25 +169,35 @@ Exotic Options (3-month, GARCH model)
 
 Portfolio stress test (SPY 60% / TLT 30% / GLD 10%) using GARCH-calibrated scenarios with decaying vol shocks over a 63-day horizon.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  PORTFOLIO RISK UNDER STRESS  ·  63-day horizon  ·  10,000 MC paths        │
-├──────────────────────┬─────────┬──────────┬──────────┬──────────────────────┤
-│  Metric              │ Normal  │ Vol 2×   │ COVID 3× │ GFC 4×             │
-├──────────────────────┼─────────┼──────────┼──────────┼──────────────────────┤
-│  VaR 1%              │ -18.9%  │  -25.6%  │  -29.5%  │  -32.0%            │
-│  CVaR 1%             │ -28.8%  │  -35.4%  │  -37.4%  │  -39.8%            │
-│  Median Max DD       │  -3.9%  │   -5.5%  │   -7.2%  │   -8.8%            │
-│  Worst Max DD (1pct) │ -29.7%  │  -37.0%  │  -43.1%  │  -45.8%            │
-│  P(loss > 10%)       │   3.5%  │    5.9%  │    7.5%  │    9.2%            │
-│  P(loss > 20%)       │   0.9%  │    1.8%  │    2.5%  │    3.5%            │
-└──────────────────────┴─────────┴──────────┴──────────┴──────────────────────┘
+<table>
+<thead>
+<tr>
+<th colspan="5">Portfolio Risk Under Stress &nbsp;·&nbsp; 63-day horizon &nbsp;·&nbsp; 10,000 MC paths</th>
+</tr>
+<tr>
+<th>Metric</th>
+<th align="center">Normal</th>
+<th align="center">Vol 2×</th>
+<th align="center">COVID 3×</th>
+<th align="center">GFC 4×</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>VaR 1%</td><td align="center">−18.9%</td><td align="center">−25.6%</td><td align="center">−29.5%</td><td align="center">−32.0%</td></tr>
+<tr><td>CVaR 1%</td><td align="center">−28.8%</td><td align="center">−35.4%</td><td align="center">−37.4%</td><td align="center">−39.8%</td></tr>
+<tr><td>Median Max DD</td><td align="center">−3.9%</td><td align="center">−5.5%</td><td align="center">−7.2%</td><td align="center">−8.8%</td></tr>
+<tr><td>Worst Max DD (1%)</td><td align="center">−29.7%</td><td align="center">−37.0%</td><td align="center">−43.1%</td><td align="center">−45.8%</td></tr>
+<tr><td>P(loss > 10%)</td><td align="center">3.5%</td><td align="center">5.9%</td><td align="center">7.5%</td><td align="center">9.2%</td></tr>
+<tr><td>P(loss > 20%)</td><td align="center">0.9%</td><td align="center">1.8%</td><td align="center">2.5%</td><td align="center">3.5%</td></tr>
+</tbody>
+</table>
 
-  Historical validation:
-    GFC actual (49 days):   -22.6% portfolio loss → exceeds 2× VaR scenario  ✓
-    COVID actual (24 days): -17.5% portfolio loss → exceeds Normal VaR        ✓
-    Diversification benefit held at ~30% even under 4× stress                 ✓
-```
+<blockquote>
+<b>Historical validation</b><br>
+✅ <b>GFC</b> (49 days): −22.6% portfolio loss → exceeds Vol 2× VaR scenario<br>
+✅ <b>COVID</b> (24 days): −17.5% portfolio loss → exceeds Normal VaR<br>
+✅ Diversification benefit held at ~30% even under GFC 4× stress
+</blockquote>
 
 ---
 
