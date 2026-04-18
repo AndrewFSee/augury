@@ -81,8 +81,10 @@ class HestonEngine(SimulationEngine):
             # Low dispersion regime: moment-matched normal
             mask_low = psi <= 1.5
             if np.any(mask_low):
-                b2 = 2 / psi[mask_low] - 1 + np.sqrt(2 / psi[mask_low]) * np.sqrt(
-                    2 / psi[mask_low] - 1
+                b2 = (
+                    2 / psi[mask_low]
+                    - 1
+                    + np.sqrt(2 / psi[mask_low]) * np.sqrt(2 / psi[mask_low] - 1)
                 )
                 a = m[mask_low] / (1 + b2)
                 Z_v = rng.standard_normal(np.sum(mask_low))

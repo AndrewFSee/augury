@@ -66,9 +66,7 @@ class CopulaSimulator:
                 f"Unknown copula_type '{copula_type}'. "
                 "Choose from: 'gaussian', 'student_t', 'clayton'"
             )
-        logger.debug(
-            f"CopulaSimulator: {n_paths} paths x {n_assets} assets, type={copula_type}"
-        )
+        logger.debug(f"CopulaSimulator: {n_paths} paths x {n_assets} assets, type={copula_type}")
         return U
 
     def generate_correlated_returns(

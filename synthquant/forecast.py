@@ -1,4 +1,6 @@
-"""Probabilistic forecaster combining regime detection, volatility modeling, and Monte Carlo simulation."""
+"""Probabilistic forecaster combining regime detection,
+volatility modeling, and Monte Carlo simulation.
+"""
 
 from __future__ import annotations
 
@@ -264,10 +266,12 @@ class ProbabilisticForecaster:
         ann_params = []
         for i in range(self.n_regimes):
             rp = regime_params[i]
-            ann_params.append({
-                "mu": rp["mu"] * 252,       # daily → annual drift
-                "sigma": rp["sigma"] * np.sqrt(252),  # daily → annual vol
-            })
+            ann_params.append(
+                {
+                    "mu": rp["mu"] * 252,  # daily → annual drift
+                    "sigma": rp["sigma"] * np.sqrt(252),  # daily → annual vol
+                }
+            )
 
         # Build and run simulation engine
         assert self._transition_matrix is not None, "fit() must be called before forecast()"
@@ -299,7 +303,7 @@ class ProbabilisticForecaster:
         quantiles = [0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99]
         bands = {}
         for q in quantiles:
-            bands[f"p{int(q*100):02d}"] = np.quantile(paths, q, axis=0)
+            bands[f"p{int(q * 100):02d}"] = np.quantile(paths, q, axis=0)
 
         # Fit empirical distribution
         dist = EmpiricalDistribution()
@@ -357,9 +361,7 @@ class ProbabilisticForecaster:
         # Build rolling forecast ensembles for CRPS / coverage
         # Compare cumulative returns at each step
         cum_actual = np.cumsum(actual)
-        sim_returns = np.log(
-            forecast_result.paths[:, 1:] / forecast_result.paths[:, :-1]
-        )
+        sim_returns = np.log(forecast_result.paths[:, 1:] / forecast_result.paths[:, :-1])
 
         # Terminal return comparison
         actual_terminal = float(cum_actual[-1]) if n_actual > 0 else 0.0
@@ -383,9 +385,7 @@ class ProbabilisticForecaster:
         realised_vol = float(np.std(actual) * np.sqrt(252))
         rv_samples = forecast_result.realized_vol_samples
         forecast_vol = float(np.mean(rv_samples))
-        rv_crps = ForecastScorer.crps(
-            rv_samples.reshape(1, -1), np.array([realised_vol])
-        )
+        rv_crps = ForecastScorer.crps(rv_samples.reshape(1, -1), np.array([realised_vol]))
 
         return {
             "crps": crps,
@@ -398,14 +398,10 @@ class ProbabilisticForecaster:
             "realised_annual_vol": realised_vol,
             "forecast_annual_vol": forecast_vol,
             "actual_in_90pct_interval": bool(
-                forecast_result.quantile(0.05)
-                <= actual_terminal
-                <= forecast_result.quantile(0.95)
+                forecast_result.quantile(0.05) <= actual_terminal <= forecast_result.quantile(0.95)
             ),
             "actual_in_50pct_interval": bool(
-                forecast_result.quantile(0.25)
-                <= actual_terminal
-                <= forecast_result.quantile(0.75)
+                forecast_result.quantile(0.25) <= actual_terminal <= forecast_result.quantile(0.75)
             ),
         }
 
@@ -437,9 +433,7 @@ class ProbabilisticForecaster:
         else:
             raise ValueError(f"Unknown detector type: {self.detector_type}")
 
-    def _normalize_regime_params(
-        self, raw: dict[int, dict[str, Any]]
-    ) -> dict[int, dict[str, Any]]:
+    def _normalize_regime_params(self, raw: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
         """Normalise regime params to a consistent {mu, sigma} format."""
         params: dict[int, dict[str, Any]] = {}
         for i, rp in raw.items():
@@ -450,7 +444,8 @@ class ProbabilisticForecaster:
                 mu = float(rp["means"][0]) if isinstance(rp["means"], list) else float(rp["means"])
                 cov = rp.get("covariances", rp.get("sigma", 0.01))
                 if isinstance(cov, list):
-                    sigma = float(np.sqrt(abs(cov[0]))) if isinstance(cov[0], list) else float(np.sqrt(abs(cov[0])))
+                    raw = cov[0][0] if isinstance(cov[0], list) else cov[0]
+                    sigma = float(np.sqrt(abs(raw)))
                 else:
                     sigma = float(np.sqrt(abs(cov)))
                 params[i] = {"mu": mu, "sigma": sigma}
@@ -499,10 +494,7 @@ class ProbabilisticForecaster:
         uncond_vol = float(np.std(self._returns))
 
         # Scaling ratio: if GARCH says vol is elevated, scale all regimes up
-        if uncond_vol > 1e-10:
-            scale = cond_vol_daily / uncond_vol
-        else:
-            scale = 1.0
+        scale = cond_vol_daily / uncond_vol if uncond_vol > 1e-10 else 1.0
 
         # Clamp scaling to avoid extremes
         scale = float(np.clip(scale, 0.5, 2.0))
@@ -522,6 +514,4 @@ class ProbabilisticForecaster:
 
     def _check_fitted(self) -> None:
         if not self._fitted:
-            raise RuntimeError(
-                "Forecaster has not been fitted. Call fit() first."
-            )
+            raise RuntimeError("Forecaster has not been fitted. Call fit() first.")

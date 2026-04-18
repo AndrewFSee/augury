@@ -104,15 +104,11 @@ class SignalTuner:
         returns = np.asarray(returns, dtype=float)
 
         if prices is None:
-            prices = 100.0 * np.exp(
-                np.concatenate([[0.0], np.cumsum(returns)])
-            )
+            prices = 100.0 * np.exp(np.concatenate([[0.0], np.cumsum(returns)]))
 
         n = len(returns)
         if n < self.lookback + self.horizon:
-            raise ValueError(
-                f"Need at least {self.lookback + self.horizon} returns, got {n}"
-            )
+            raise ValueError(f"Need at least {self.lookback + self.horizon} returns, got {n}")
 
         snapshots: list[ForecastSnapshot] = []
         positions = list(range(self.lookback, n - self.horizon, self.step))
@@ -128,9 +124,7 @@ class SignalTuner:
                 progress_fn(i + 1, total, f"t={t} price={current_price:.2f}")
 
             try:
-                with warnings.catch_warnings(), contextlib.redirect_stderr(
-                    io.StringIO()
-                ):
+                with warnings.catch_warnings(), contextlib.redirect_stderr(io.StringIO()):
                     warnings.simplefilter("ignore")
                     fc = EnsembleForecaster(
                         n_paths=self.n_paths,
@@ -138,7 +132,8 @@ class SignalTuner:
                     )
                     fc.fit(train_rets)
                     forecast = fc.forecast(
-                        horizon=self.horizon, current_price=current_price,
+                        horizon=self.horizon,
+                        current_price=current_price,
                     )
 
                 snapshots.append(
@@ -151,7 +146,9 @@ class SignalTuner:
                 )
             except Exception:
                 logger.warning(
-                    "prepare: failed at t=%d, skipping", t, exc_info=True,
+                    "prepare: failed at t=%d, skipping",
+                    t,
+                    exc_info=True,
                 )
 
         return snapshots
@@ -211,7 +208,8 @@ class SignalTuner:
 
         for i, snap in enumerate(snapshots):
             result = fs.generate(
-                snap.forecast, recent_returns=snap.recent_returns,
+                snap.forecast,
+                recent_returns=snap.recent_returns,
             )
             signals[i] = result.signal
             convictions[i] = result.conviction
@@ -223,9 +221,7 @@ class SignalTuner:
         # Sharpe (annualised)
         periods_per_year = 252 / self.horizon
         if len(pnl) > 1 and np.std(pnl) > 1e-12:
-            sharpe = float(
-                np.mean(pnl) / np.std(pnl) * np.sqrt(periods_per_year)
-            )
+            sharpe = float(np.mean(pnl) / np.std(pnl) * np.sqrt(periods_per_year))
         else:
             sharpe = 0.0
 
@@ -241,11 +237,7 @@ class SignalTuner:
 
         # Information ratio (Spearman rank correlation)
         scored = signals * convictions
-        if (
-            len(scored) > 2
-            and np.std(scored) > 1e-12
-            and np.std(actual) > 1e-12
-        ):
+        if len(scored) > 2 and np.std(scored) > 1e-12 and np.std(actual) > 1e-12:
             info_ratio = float(spearmanr(scored, actual).statistic)
         else:
             info_ratio = 0.0
@@ -253,12 +245,8 @@ class SignalTuner:
         n_long = int((signals > 0).sum())
         n_short = int((signals < 0).sum())
         n_flat = int((signals == 0).sum())
-        avg_ret_long = (
-            float(np.mean(actual[signals > 0])) if n_long > 0 else 0.0
-        )
-        avg_ret_flat = (
-            float(np.mean(actual[signals == 0])) if n_flat > 0 else 0.0
-        )
+        avg_ret_long = float(np.mean(actual[signals > 0])) if n_long > 0 else 0.0
+        avg_ret_flat = float(np.mean(actual[signals == 0])) if n_flat > 0 else 0.0
 
         return {
             "sharpe": sharpe,
@@ -323,25 +311,22 @@ class SignalTuner:
                 if total <= 0:
                     total = 1.0
                 normed = raw / total
-                p = {
-                    f"w_{name}": float(normed[i])
-                    for i, name in enumerate(self.WEIGHT_NAMES)
-                }
+                p = {f"w_{name}": float(normed[i]) for i, name in enumerate(self.WEIGHT_NAMES)}
                 p["conviction_threshold"] = default["conviction_threshold"]
                 p["momentum_short"] = default["momentum_short"]
                 p["momentum_long"] = default["momentum_long"]
                 return p
         else:
             bounds = [
-                (0.01, 1.0),   # w_regime
-                (0.01, 1.0),   # w_skew
-                (0.01, 1.0),   # w_prob_profit
-                (0.01, 1.0),   # w_tail_risk
-                (0.01, 1.0),   # w_vol
-                (0.01, 1.0),   # w_momentum
+                (0.01, 1.0),  # w_regime
+                (0.01, 1.0),  # w_skew
+                (0.01, 1.0),  # w_prob_profit
+                (0.01, 1.0),  # w_tail_risk
+                (0.01, 1.0),  # w_vol
+                (0.01, 1.0),  # w_momentum
                 (0.05, 0.40),  # conviction_threshold
-                (5, 42),       # momentum_short
-                (21, 126),     # momentum_long
+                (5, 42),  # momentum_short
+                (21, 126),  # momentum_long
             ]
             _to_params = self._vector_to_params
 
@@ -355,22 +340,14 @@ class SignalTuner:
             _eval_cache[x.tobytes()] = val  # cache raw metric
             if regularization > 0:
                 pen = sum(
-                    (p[f"w_{name}"] - default[f"w_{name}"]) ** 2
-                    for name in self.WEIGHT_NAMES
+                    (p[f"w_{name}"] - default[f"w_{name}"]) ** 2 for name in self.WEIGHT_NAMES
                 )
                 if not tune_weights_only:
                     pen += (
-                        (p["conviction_threshold"]
-                         - default["conviction_threshold"]) / 0.35
+                        (p["conviction_threshold"] - default["conviction_threshold"]) / 0.35
                     ) ** 2
-                    pen += (
-                        (p["momentum_short"]
-                         - default["momentum_short"]) / 37.0
-                    ) ** 2
-                    pen += (
-                        (p["momentum_long"]
-                         - default["momentum_long"]) / 105.0
-                    ) ** 2
+                    pen += ((p["momentum_short"] - default["momentum_short"]) / 37.0) ** 2
+                    pen += ((p["momentum_long"] - default["momentum_long"]) / 105.0) ** 2
                 val -= regularization * pen
             return -val
 
@@ -454,8 +431,7 @@ class SignalTuner:
         fold_size = n // n_folds
         if fold_size < 3:
             raise ValueError(
-                f"Too few snapshots ({n}) for {n_folds} folds "
-                f"(need at least {n_folds * 3})"
+                f"Too few snapshots ({n}) for {n_folds} folds (need at least {n_folds * 3})"
             )
 
         fold_results: list[dict[str, Any]] = []
@@ -498,12 +474,8 @@ class SignalTuner:
         mean_oos_tuned: dict[str, float] = {}
         mean_oos_default: dict[str, float] = {}
         for key in fold_results[0]["oos_tuned"]:
-            mean_oos_tuned[key] = float(
-                np.mean([fr["oos_tuned"][key] for fr in fold_results])
-            )
-            mean_oos_default[key] = float(
-                np.mean([fr["oos_default"][key] for fr in fold_results])
-            )
+            mean_oos_tuned[key] = float(np.mean([fr["oos_tuned"][key] for fr in fold_results]))
+            mean_oos_default[key] = float(np.mean([fr["oos_default"][key] for fr in fold_results]))
 
         return {
             "fold_results": fold_results,

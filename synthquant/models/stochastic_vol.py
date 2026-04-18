@@ -90,9 +90,7 @@ class HestonModel:
             v_pos = np.maximum(V[:, t], 0.0)
             sqrt_v = np.sqrt(v_pos)
 
-            S[:, t + 1] = S[:, t] * np.exp(
-                (self.mu - 0.5 * v_pos) * dt + sqrt_v * sqrt_dt * Z_S
-            )
+            S[:, t + 1] = S[:, t] * np.exp((self.mu - 0.5 * v_pos) * dt + sqrt_v * sqrt_dt * Z_S)
             V[:, t + 1] = (
                 v_pos
                 + self.kappa * (self.theta - v_pos) * dt

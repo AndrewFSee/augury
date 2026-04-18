@@ -28,9 +28,7 @@ def test_cvar_is_at_least_as_severe_as_var(sample_paths: np.ndarray) -> None:
     for alpha in [0.01, 0.05, 0.10]:
         var = value_at_risk(sample_paths, alpha=alpha)
         cvar = conditional_var(sample_paths, alpha=alpha)
-        assert cvar <= var, (
-            f"At alpha={alpha}: CVaR={cvar:.4f} is not <= VaR={var:.4f}"
-        )
+        assert cvar <= var, f"At alpha={alpha}: CVaR={cvar:.4f} is not <= VaR={var:.4f}"
 
 
 def test_expected_shortfall_equals_conditional_var(sample_paths: np.ndarray) -> None:

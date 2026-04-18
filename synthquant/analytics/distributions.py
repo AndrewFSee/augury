@@ -43,9 +43,7 @@ class EmpiricalDistribution:
         terminal = paths[:, col]
         self._samples = np.log(terminal / S0)
         self._kde = stats.gaussian_kde(self._samples, bw_method=self.bw_method)
-        logger.info(
-            f"EmpiricalDistribution fitted to {len(self._samples)} samples"
-        )
+        logger.info(f"EmpiricalDistribution fitted to {len(self._samples)} samples")
         return self
 
     def pdf(self, x: np.ndarray) -> np.ndarray:
@@ -100,7 +98,7 @@ class EmpiricalDistribution:
             Tuple of (lower, upper) quantile values.
         """
         self._check_fitted()
-        lower = float(np.quantile(self._samples, alpha / 2))   # type: ignore[arg-type]
+        lower = float(np.quantile(self._samples, alpha / 2))  # type: ignore[arg-type]
         upper = float(np.quantile(self._samples, 1 - alpha / 2))  # type: ignore[arg-type]
         return lower, upper
 

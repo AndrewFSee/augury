@@ -198,9 +198,7 @@ class BayesianCalibrator(Calibrator):
                 return_inferencedata=True,
             )
 
-        posterior = {
-            k: trace.posterior[k].values.flatten() for k in param_names
-        }
+        posterior = {k: trace.posterior[k].values.flatten() for k in param_names}
         fitted = {k: float(np.mean(posterior[k])) for k in param_names}
         logger.info(f"Bayesian calibration complete: {self.n_draws} draws x {self.n_chains} chains")
         return CalibratedParams(

@@ -101,7 +101,7 @@ class WalkForwardBacktest:
             # Rebalance at specified frequency
             if (t - start) % self.rebalance_freq == 0:
                 train_end = t - self.embargo
-                train_prices = prices.iloc[train_end - self.train_window: train_end]
+                train_prices = prices.iloc[train_end - self.train_window : train_end]
                 new_weights = strategy_fn(train_prices)
                 new_weights = np.asarray(new_weights, dtype=float)
                 new_weights = np.clip(new_weights, 0, None)

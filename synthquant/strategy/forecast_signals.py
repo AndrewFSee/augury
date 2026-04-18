@@ -195,9 +195,7 @@ class ForecastSignal:
         components["momentum"] = self._score_momentum(recent_returns)
 
         # Weighted composite in [-1, +1]
-        composite = sum(
-            self.weights[k] * components[k] for k in self.weights
-        )
+        composite = sum(self.weights[k] * components[k] for k in self.weights)
 
         # Determine signal
         if composite >= self.conviction_threshold:
@@ -222,7 +220,9 @@ class ForecastSignal:
 
         logger.debug(
             "ForecastSignal: signal=%+d conviction=%.2f regime=%d components=%s",
-            signal, conviction, forecast.current_regime,
+            signal,
+            conviction,
+            forecast.current_regime,
             {k: f"{v:+.2f}" for k, v in components.items()},
         )
         return result
@@ -367,10 +367,7 @@ class ForecastSignal:
         horizon_days = fc.horizon
 
         # Annualise
-        if horizon_days > 0:
-            ann_vol = vol * np.sqrt(252 / horizon_days)
-        else:
-            ann_vol = vol
+        ann_vol = vol * np.sqrt(252 / horizon_days) if horizon_days > 0 else vol
 
         # Map: 10% vol → +0.8, 20% → +0.2, 30% → -0.4, 40% → -1.0
         score = 1.0 - (ann_vol - 0.10) / 0.15
@@ -404,9 +401,6 @@ class ForecastSignal:
         primary = float(np.tanh(short_ann / 0.40))
 
         # Confirmation multiplier: same sign → 1.0, opposite → 0.5
-        if short_ann * long_ann >= 0:
-            confirm = 1.0
-        else:
-            confirm = 0.5
+        confirm = 1.0 if short_ann * long_ann >= 0 else 0.5
 
         return float(np.clip(primary * confirm, -1.0, 1.0))

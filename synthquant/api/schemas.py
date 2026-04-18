@@ -55,9 +55,7 @@ class RegimeResponse(BaseModel):
     symbol: str
     current_regime: int = Field(description="Most likely current regime index")
     regime_proba: list[float] = Field(description="Posterior probabilities for each regime")
-    regime_params: dict[str, dict[str, float]] = Field(
-        description="Fitted parameters per regime"
-    )
+    regime_params: dict[str, dict[str, float]] = Field(description="Fitted parameters per regime")
     n_regimes: int
 
 

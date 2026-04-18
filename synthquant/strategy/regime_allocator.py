@@ -124,8 +124,7 @@ class RegimeAllocator:
     ) -> None:
         if not 0 <= crisis_weight <= calm_weight <= 1.0:
             raise ValueError(
-                f"Need 0 <= crisis_weight ({crisis_weight}) "
-                f"<= calm_weight ({calm_weight}) <= 1"
+                f"Need 0 <= crisis_weight ({crisis_weight}) <= calm_weight ({calm_weight}) <= 1"
             )
         self.calm_weight = calm_weight
         self.crisis_weight = crisis_weight
@@ -159,10 +158,7 @@ class RegimeAllocator:
         # Generalises to N regimes by interpolating linearly with vol rank.
         n_regimes = len(proba)
         if n_regimes == 2:
-            exposure = (
-                self.calm_weight * float(proba[0])
-                + self.crisis_weight * float(proba[1])
-            )
+            exposure = self.calm_weight * float(proba[0]) + self.crisis_weight * float(proba[1])
         else:
             # For >2 regimes, interpolate weights by state index
             # (states ordered by ascending vol thanks to anchoring)
@@ -174,11 +170,7 @@ class RegimeAllocator:
         # back toward calm_weight proportionally.  De-risking stays fast
         # (follows HMM directly); re-risking is accelerated by momentum.
         momentum_boost = 0.0
-        if (
-            self.reentry_lookback > 0
-            and recent_returns is not None
-            and exposure < self.calm_weight
-        ):
+        if self.reentry_lookback > 0 and recent_returns is not None and exposure < self.calm_weight:
             trail = recent_returns[-self.reentry_lookback :]
             if len(trail) >= 5:
                 trailing_return = float(np.sum(trail))
@@ -191,7 +183,7 @@ class RegimeAllocator:
         # Volatility targeting overlay
         vol_scale = 1.0
         if self.vol_target is not None and recent_returns is not None:
-            lookback_rets = recent_returns[-self.vol_lookback:]
+            lookback_rets = recent_returns[-self.vol_lookback :]
             if len(lookback_rets) >= 5:
                 realised_vol = float(np.std(lookback_rets)) * np.sqrt(252)
                 if realised_vol > 0:
@@ -212,6 +204,9 @@ class RegimeAllocator:
 
         logger.debug(
             "RegimeAllocator: exposure=%.2f regime=%d vol_scale=%.2f momentum_boost=%.3f",
-            exposure, regime, vol_scale, momentum_boost,
+            exposure,
+            regime,
+            vol_scale,
+            momentum_boost,
         )
         return result

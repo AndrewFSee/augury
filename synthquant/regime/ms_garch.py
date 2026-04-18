@@ -69,8 +69,7 @@ class MarkovSwitchingGARCH:
         self._result = model.fit(disp=False)
         self._anchor_labels()
         logger.info(
-            f"MarkovSwitchingGARCH fitted: {self.k_regimes} regimes, "
-            f"AIC={self._result.aic:.4f}"
+            f"MarkovSwitchingGARCH fitted: {self.k_regimes} regimes, AIC={self._result.aic:.4f}"
         )
         return self
 
@@ -161,10 +160,9 @@ class MarkovSwitchingGARCH:
         param_map = dict(
             zip(self._result.model.data.param_names, self._result.params, strict=False)
         )
-        variances = np.array([
-            float(param_map.get(f"sigma2[{i}]", 1.0))
-            for i in range(self.k_regimes)
-        ])
+        variances = np.array(
+            [float(param_map.get(f"sigma2[{i}]", 1.0)) for i in range(self.k_regimes)]
+        )
         self._label_order = np.argsort(variances)
 
     def _check_fitted(self) -> None:

@@ -12,7 +12,8 @@ classic directional signals well-suited for ETFs:
 * :class:`CrossSectionalMomentum` — rank-based momentum across an asset
   universe. Long top-N, flat (or short) bottom-N.
 
-These are *inputs* to :class:`~synthquant.strategy.forecast_signals.ForecastSignal.generate_decomposed`
+These are *inputs* to
+:class:`~synthquant.strategy.forecast_signals.ForecastSignal.generate_decomposed`
 which provides the size from a forecast's uncertainty properties.
 """
 
@@ -87,7 +88,8 @@ class TimeSeriesMomentum:
         if len(r) < self.lookback_long:
             return DirectionalSignal(direction=0, strength=0.0)
 
-        window = r[-self.lookback_long : len(r) - self.skip] if self.skip > 0 else r[-self.lookback_long :]
+        end = len(r) - self.skip if self.skip > 0 else len(r)
+        window = r[-self.lookback_long : end]
         cum = float(np.sum(window))
 
         if cum > self.threshold:

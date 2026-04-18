@@ -86,7 +86,7 @@ class HARRV:
         Returns:
             Array of rolling realized variance values.
         """
-        rv = returns ** 2
+        rv = returns**2
         if window == 1:
             return rv
         n = len(rv)
@@ -123,9 +123,7 @@ class HARRV:
             out[window:] = (cs[window:] - cs[:-window]) / window
         return out
 
-    def _build_features(
-        self, rv: np.ndarray, bpv: np.ndarray | None
-    ) -> np.ndarray:
+    def _build_features(self, rv: np.ndarray, bpv: np.ndarray | None) -> np.ndarray:
         """Build the regressor matrix from RV/BPV series."""
         n = len(rv)
         rv_d = rv  # daily RV component
@@ -185,7 +183,7 @@ class HARRV:
             self
         """
         r = np.asarray(returns, dtype=float).ravel()
-        rv = r ** 2  # daily realized variance proxy
+        rv = r**2  # daily realized variance proxy
         self._rv_series = rv
 
         bpv = None
@@ -258,7 +256,7 @@ class HARRV:
 
         if returns is not None:
             r = np.asarray(returns, dtype=float).ravel()
-            rv = r ** 2
+            rv = r**2
             bpv = self.bipower_variation(r) if self.variant in ("jump", "cj") else None
         else:
             rv = self._rv_series

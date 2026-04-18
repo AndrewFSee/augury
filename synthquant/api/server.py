@@ -32,8 +32,7 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
 except ImportError as e:
     raise ImportError(
-        "FastAPI is required for the API server. "
-        "Install with: pip install synthquant[api]"
+        "FastAPI is required for the API server. Install with: pip install synthquant[api]"
     ) from e
 
 app = FastAPI(
@@ -100,9 +99,7 @@ async def simulate(request: SimulationRequest) -> ForecastResponse:
     log_returns = np.log(terminal / S0)
 
     percentile_keys = [1, 5, 10, 25, 50, 75, 90, 95, 99]
-    percentiles = {
-        f"p{p}": float(np.percentile(log_returns, p)) for p in percentile_keys
-    }
+    percentiles = {f"p{p}": float(np.percentile(log_returns, p)) for p in percentile_keys}
 
     return ForecastResponse(
         symbol=request.symbol,

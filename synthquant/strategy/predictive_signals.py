@@ -34,11 +34,10 @@ Categories of predictive signals:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 
 if TYPE_CHECKING:
     from synthquant.data.market_data import MarketSnapshot
@@ -59,6 +58,7 @@ class SignalOutput:
         components: Individual signal values keyed by name.
         weights: Weight used for each component in the composite.
     """
+
     composite: float
     components: dict[str, float]
     weights: dict[str, float]
@@ -73,6 +73,7 @@ class SignalOutput:
 # ------------------------------------------------------------------ #
 # Helper functions
 # ------------------------------------------------------------------ #
+
 
 def _rolling_std(arr: np.ndarray, window: int) -> np.ndarray:
     """Rolling std with expanding warmup.  Returns array of same length."""
@@ -109,6 +110,7 @@ def _clip_signal(x: float) -> float:
 # ------------------------------------------------------------------ #
 # Individual signal builders
 # ------------------------------------------------------------------ #
+
 
 def _vol_term_structure(returns: np.ndarray, short: int = 5, long: int = 63) -> float:
     """Short-term vol vs long-term vol.
@@ -153,8 +155,11 @@ def _vol_acceleration(returns: np.ndarray, window: int = 21) -> float:
 
 
 def _range_expansion(
-    high: np.ndarray, low: np.ndarray, close: np.ndarray,
-    short: int = 5, long: int = 63,
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    short: int = 5,
+    long: int = 63,
 ) -> float:
     """Intraday range expansion — widening ranges precede breakouts/breakdowns.
 
@@ -177,7 +182,9 @@ def _range_expansion(
 
 
 def _price_distance_from_ma(
-    close: np.ndarray, ma_window: int = 50, std_window: int = 252,
+    close: np.ndarray,
+    ma_window: int = 50,
+    std_window: int = 252,
 ) -> float:
     """Z-score of price relative to moving average.
 
@@ -271,7 +278,9 @@ def _volume_trend(volume: np.ndarray, short: int = 5, long: int = 21) -> float:
 
 
 def _price_volume_divergence(
-    returns: np.ndarray, volume: np.ndarray, window: int = 21,
+    returns: np.ndarray,
+    volume: np.ndarray,
+    window: int = 21,
 ) -> float:
     """Detect price-volume divergence.
 
@@ -305,6 +314,7 @@ def _price_volume_divergence(
 # Cross-asset signals  (optional — need extra ticker data)
 # ------------------------------------------------------------------ #
 
+
 def _cross_asset_signal(
     equity_returns: np.ndarray,
     safe_haven_returns: np.ndarray | None,
@@ -332,6 +342,7 @@ def _cross_asset_signal(
 # ------------------------------------------------------------------ #
 # Market-implied signals  (options / credit / bond vol)
 # ------------------------------------------------------------------ #
+
 
 def _vix_term_structure_signal(
     vix: np.ndarray | None,
@@ -473,6 +484,7 @@ def _move_index_signal(
 # Main class
 # ------------------------------------------------------------------ #
 
+
 class PredictiveSignals:
     """Compute forward-looking signals from OHLCV data.
 
@@ -581,17 +593,13 @@ class PredictiveSignals:
         # Volume signals
         w = self.signal_weights.get("price_volume_divergence", 0)
         if w > 0 and volume is not None:
-            components["price_volume_divergence"] = _price_volume_divergence(
-                returns, volume
-            )
+            components["price_volume_divergence"] = _price_volume_divergence(returns, volume)
             active_weights["price_volume_divergence"] = w
 
         # Cross-asset signals
         w = self.signal_weights.get("cross_asset", 0)
         if w > 0:
-            components["cross_asset"] = _cross_asset_signal(
-                returns, safe_haven_returns
-            )
+            components["cross_asset"] = _cross_asset_signal(returns, safe_haven_returns)
             active_weights["cross_asset"] = w
 
         # Market-implied signals (require MarketSnapshot)
@@ -628,8 +636,7 @@ class PredictiveSignals:
         else:
             total_weight = sum(active_weights.values())
             composite = sum(
-                components[k] * active_weights[k] / total_weight
-                for k in active_weights
+                components[k] * active_weights[k] / total_weight for k in active_weights
             )
             composite *= self.sensitivity
 
@@ -649,7 +656,7 @@ def compute_predictive_signals(
     low: np.ndarray | None = None,
     volume: np.ndarray | None = None,
     safe_haven_returns: np.ndarray | None = None,
-    market_data: "MarketSnapshot | None" = None,
+    market_data: MarketSnapshot | None = None,
     sensitivity: float = 1.0,
 ) -> SignalOutput:
     """Convenience function: compute predictive signals with default weights."""

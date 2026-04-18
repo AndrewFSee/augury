@@ -80,8 +80,7 @@ class RoughBergomi:
             for j in range(n_steps):
                 si, tj = times[i], times[j]
                 cov_matrix[i, j] = 0.5 * (
-                    si ** (2 * self.H) + tj ** (2 * self.H)
-                    - abs(si - tj) ** (2 * self.H)
+                    si ** (2 * self.H) + tj ** (2 * self.H) - abs(si - tj) ** (2 * self.H)
                 )
 
         # Add small regularisation for numerical stability
@@ -100,7 +99,7 @@ class RoughBergomi:
 
         # Generate fBm paths: multiply Cholesky factor by standard normals
         # fBm[:, k] = (L_fbm @ Z_V.T)[k] for each path
-        fBm_values = (Z_V @ L_fbm.T)  # (n_paths, n_steps)
+        fBm_values = Z_V @ L_fbm.T  # (n_paths, n_steps)
 
         fBm = np.zeros((n_paths, n_steps + 1))
         fBm[:, 1:] = fBm_values

@@ -131,9 +131,12 @@ class SynthScorer:
 
                 # CRPS = E[|X - y|] - 0.5 * E[|X - X'|]
                 mae = float(np.mean(np.abs(pred_changes - actual_change)))
-                spread = float(np.mean(np.abs(
-                    pred_changes[:, np.newaxis] - pred_changes[np.newaxis, :]
-                ))) / 2
+                spread = (
+                    float(
+                        np.mean(np.abs(pred_changes[:, np.newaxis] - pred_changes[np.newaxis, :]))
+                    )
+                    / 2
+                )
                 crps_values.append(mae - spread)
 
             crps_arr = np.array(crps_values)

@@ -227,8 +227,7 @@ class EnsembleForecaster:
 
         self._fitted = True
         logger.info(
-            f"EnsembleForecaster fitted: detector={self.detector_type}, "
-            f"regimes={self.n_regimes}"
+            f"EnsembleForecaster fitted: detector={self.detector_type}, regimes={self.n_regimes}"
         )
         return self
 
@@ -352,10 +351,12 @@ class EnsembleForecaster:
         ann_params = []
         for i in range(self.n_regimes):
             cp = self._calibrated[i]
-            ann_params.append({
-                "mu": cp.mu * 252,
-                "sigma": cp.sigma * np.sqrt(252),
-            })
+            ann_params.append(
+                {
+                    "mu": cp.mu * 252,
+                    "sigma": cp.sigma * np.sqrt(252),
+                }
+            )
         assert self._transition_matrix is not None, "fit() must be called before forecast()"
         regime_paths = RegimeSwitchingEngine(
             regime_params=ann_params,
@@ -499,9 +500,7 @@ class EnsembleForecaster:
         """
         n_steps = int(horizon_hours * 3600 / interval_seconds)
 
-        seconds_per_year = (
-            365.25 * 24 * 3600 if asset_type == "crypto" else 252 * 6.5 * 3600
-        )
+        seconds_per_year = 365.25 * 24 * 3600 if asset_type == "crypto" else 252 * 6.5 * 3600
 
         dt = interval_seconds / seconds_per_year
 
@@ -553,17 +552,13 @@ class EnsembleForecaster:
         crps = ForecastScorer.crps(forecasts_2d, observations_1d)
         coverage = ForecastScorer.coverage_test(forecasts_2d, observations_1d)
 
-        sim_daily = np.log(
-            forecast_result.paths[:, 1:] / forecast_result.paths[:, :-1]
-        ).flatten()
+        sim_daily = np.log(forecast_result.paths[:, 1:] / forecast_result.paths[:, :-1]).flatten()
         ks = ForecastScorer.ks_test(sim_daily, actual)
 
         realised_vol = float(np.std(actual) * np.sqrt(252))
         rv_samples = forecast_result.realized_vol_samples
         forecast_vol = float(np.mean(rv_samples))
-        rv_crps = ForecastScorer.crps(
-            rv_samples.reshape(1, -1), np.array([realised_vol])
-        )
+        rv_crps = ForecastScorer.crps(rv_samples.reshape(1, -1), np.array([realised_vol]))
 
         return {
             "crps": crps,
@@ -576,14 +571,10 @@ class EnsembleForecaster:
             "realised_annual_vol": realised_vol,
             "forecast_annual_vol": forecast_vol,
             "actual_in_90pct_interval": bool(
-                forecast_result.quantile(0.05)
-                <= actual_terminal
-                <= forecast_result.quantile(0.95)
+                forecast_result.quantile(0.05) <= actual_terminal <= forecast_result.quantile(0.95)
             ),
             "actual_in_50pct_interval": bool(
-                forecast_result.quantile(0.25)
-                <= actual_terminal
-                <= forecast_result.quantile(0.75)
+                forecast_result.quantile(0.25) <= actual_terminal <= forecast_result.quantile(0.75)
             ),
         }
 
@@ -619,9 +610,7 @@ class EnsembleForecaster:
             from arch import arch_model
 
             scaled = regime_returns * 100.0
-            am = arch_model(
-                scaled, vol="GARCH", p=1, q=1, mean="Zero", dist="normal"
-            )
+            am = arch_model(scaled, vol="GARCH", p=1, q=1, mean="Zero", dist="normal")
             import warnings
 
             with warnings.catch_warnings():
@@ -670,11 +659,7 @@ class EnsembleForecaster:
             if len(cond_var_daily) > 10:
                 dv = np.diff(cond_var_daily)
                 r_align = regime_returns[: len(dv)]
-                if (
-                    len(r_align) == len(dv)
-                    and np.std(r_align) > 1e-10
-                    and np.std(dv) > 1e-10
-                ):
+                if len(r_align) == len(dv) and np.std(r_align) > 1e-10 and np.std(dv) > 1e-10:
                     rho = float(np.corrcoef(r_align, dv)[0, 1])
                     if np.isnan(rho):
                         rho = -0.65
@@ -704,9 +689,7 @@ class EnsembleForecaster:
             "rho": float(rho),
         }
 
-    def _calibrate_jumps(
-        self, regime_returns: np.ndarray, regime_sigma: float
-    ) -> dict[str, float]:
+    def _calibrate_jumps(self, regime_returns: np.ndarray, regime_sigma: float) -> dict[str, float]:
         """Calibrate Merton jump parameters via outlier detection + method-of-moments.
 
         Combines explicit jump identification (returns beyond 2 sigma) with
@@ -777,7 +760,7 @@ class EnsembleForecaster:
         """
         n = len(regime_returns)
         if n < self.bounds.min_regime_obs:
-            return {"H": 0.1, "xi": regime_sigma ** 2, "eta": 1.9, "rho": -0.7}
+            return {"H": 0.1, "xi": regime_sigma**2, "eta": 1.9, "rho": -0.7}
 
         # Variogram method for Hurst exponent estimation
         # RV at scale q scales as q^(2H): log(RV_q) = 2H * log(q) + const
@@ -793,7 +776,7 @@ class EnsembleForecaster:
             if n_blocks < 3:
                 continue
             agg = np.sum(regime_returns[: n_blocks * q].reshape(n_blocks, q), axis=1)
-            rv_q = float(np.mean(agg ** 2))
+            rv_q = float(np.mean(agg**2))
             if rv_q > 1e-20:
                 log_scales.append(np.log(q))
                 log_rvs.append(np.log(rv_q))
@@ -808,7 +791,7 @@ class EnsembleForecaster:
             H_est = 0.1
 
         # Map regime vol to Rough Bergomi parameters
-        xi = regime_sigma ** 2  # forward variance ~ realized variance
+        xi = regime_sigma**2  # forward variance ~ realized variance
         eta = float(np.clip(1.0 / (H_est + 0.1), 1.0, 3.0))  # higher eta for rougher
 
         # Leverage: return-vs-|return| correlation as proxy
@@ -849,9 +832,7 @@ class EnsembleForecaster:
             crisis_prob = float(regime_proba[crisis_regime])
             calm_prob = float(regime_proba[calm_regime])
         else:
-            mean_sigma = np.mean(
-                [self._calibrated[i].sigma for i in range(self.n_regimes)]
-            )
+            mean_sigma = np.mean([self._calibrated[i].sigma for i in range(self.n_regimes)])
             current_sigma = self._calibrated[current_regime].sigma
             crisis_prob = float(np.clip(current_sigma / mean_sigma - 0.5, 0, 1))
             calm_prob = 1.0 - crisis_prob
@@ -922,9 +903,7 @@ class EnsembleForecaster:
             actual_terminal = float(np.sum(val_r))
 
             # Run each engine separately and compute CRPS
-            rp = self._calibrated[int(np.argmax(
-                self._detector.predict_proba(self._obs)[-1]
-            ))]
+            rp = self._calibrated[int(np.argmax(self._detector.predict_proba(self._obs)[-1]))]
             dt = 1 / 252
 
             rng = np.random.default_rng(self.random_state)
@@ -936,51 +915,83 @@ class EnsembleForecaster:
 
             engines_paths = []
             # Heston
-            engines_paths.append(HestonEngine().simulate(
-                n_paths=500, n_steps=horizon, dt=dt, S0=current_price,
-                v0=hv0, mu=rp.mu * 252, kappa=h["kappa"],
-                theta=h["theta"], sigma_v=h["sigma_v"], rho=h["rho"],
-                random_state=int(seeds[0]),
-            ))
+            engines_paths.append(
+                HestonEngine().simulate(
+                    n_paths=500,
+                    n_steps=horizon,
+                    dt=dt,
+                    S0=current_price,
+                    v0=hv0,
+                    mu=rp.mu * 252,
+                    kappa=h["kappa"],
+                    theta=h["theta"],
+                    sigma_v=h["sigma_v"],
+                    rho=h["rho"],
+                    random_state=int(seeds[0]),
+                )
+            )
             # Merton
             j = rp.jumps
             tv = (rp.sigma * np.sqrt(252)) ** 2
             jv = j["lambda_j"] * (j["mu_j"] ** 2 + j["sigma_j"] ** 2)
             ms = np.sqrt(max(tv - jv, tv * 0.25))
-            engines_paths.append(MertonJDEngine().simulate(
-                n_paths=500, n_steps=horizon, dt=dt, S0=current_price,
-                mu=rp.mu * 252, sigma=ms,
-                lambda_j=j["lambda_j"], mu_j=j["mu_j"], sigma_j=j["sigma_j"],
-                random_state=int(seeds[1]),
-            ))
+            engines_paths.append(
+                MertonJDEngine().simulate(
+                    n_paths=500,
+                    n_steps=horizon,
+                    dt=dt,
+                    S0=current_price,
+                    mu=rp.mu * 252,
+                    sigma=ms,
+                    lambda_j=j["lambda_j"],
+                    mu_j=j["mu_j"],
+                    sigma_j=j["sigma_j"],
+                    random_state=int(seeds[1]),
+                )
+            )
             # Regime-Switching
-            ann_params = [{"mu": self._calibrated[i].mu * 252,
-                           "sigma": self._calibrated[i].sigma * np.sqrt(252)}
-                          for i in range(self.n_regimes)]
+            ann_params = [
+                {
+                    "mu": self._calibrated[i].mu * 252,
+                    "sigma": self._calibrated[i].sigma * np.sqrt(252),
+                }
+                for i in range(self.n_regimes)
+            ]
             assert self._transition_matrix is not None
-            engines_paths.append(RegimeSwitchingEngine(
-                regime_params=ann_params,
-                transition_matrix=self._transition_matrix,
-            ).simulate(
-                n_paths=500, n_steps=horizon, dt=dt, S0=current_price,
-                random_state=int(seeds[2]),
-            ))
+            engines_paths.append(
+                RegimeSwitchingEngine(
+                    regime_params=ann_params,
+                    transition_matrix=self._transition_matrix,
+                ).simulate(
+                    n_paths=500,
+                    n_steps=horizon,
+                    dt=dt,
+                    S0=current_price,
+                    random_state=int(seeds[2]),
+                )
+            )
             # Rough Bergomi (if enabled)
             if self.use_rough_bergomi:
                 rb = rp.rough_bergomi
-                engines_paths.append(RoughBergomiEngine().simulate(
-                    n_paths=500, n_steps=horizon, dt=dt, S0=current_price,
-                    H=rb.get("H", 0.1), xi=rb.get("xi", 0.04),
-                    eta=rb.get("eta", 1.9), rho=rb.get("rho", -0.7),
-                    mu=rp.mu * 252, random_state=int(seeds[3]),
-                ))
+                engines_paths.append(
+                    RoughBergomiEngine().simulate(
+                        n_paths=500,
+                        n_steps=horizon,
+                        dt=dt,
+                        S0=current_price,
+                        H=rb.get("H", 0.1),
+                        xi=rb.get("xi", 0.04),
+                        eta=rb.get("eta", 1.9),
+                        rho=rb.get("rho", -0.7),
+                        mu=rp.mu * 252,
+                        random_state=int(seeds[3]),
+                    )
+                )
 
             for eng_idx, eng_paths in enumerate(engines_paths):
                 terminal_rets = np.log(eng_paths[:, -1] / current_price)
                 mae = float(np.mean(np.abs(terminal_rets - actual_terminal)))
-                spread = float(np.mean(np.abs(
-                    terminal_rets[:, None] - terminal_rets[None, :]
-                ))) / 2
+                spread = float(np.mean(np.abs(terminal_rets[:, None] - terminal_rets[None, :]))) / 2
                 fold_crps[fold, eng_idx] = mae - spread
 
         # Optimize weights to minimize weighted CRPS
@@ -990,8 +1001,9 @@ class EnsembleForecaster:
             return float(np.mean(fold_crps @ w_norm))
 
         x0 = np.ones(n_engines) / n_engines
-        result = minimize(objective, x0, method="Nelder-Mead",
-                          options={"maxiter": 500, "xatol": 1e-4})
+        result = minimize(
+            objective, x0, method="Nelder-Mead", options={"maxiter": 500, "xatol": 1e-4}
+        )
 
         optimal = np.abs(result.x)
         optimal /= optimal.sum()
@@ -1017,10 +1029,7 @@ class EnsembleForecaster:
         garch_vol = self._garch.forecast(horizon=1)
         cond_vol_daily = garch_vol[0] / np.sqrt(252)
         uncond_vol = float(np.std(self._returns))
-        if uncond_vol > 1e-10:
-            scale = cond_vol_daily / uncond_vol
-        else:
-            scale = 1.0
+        scale = cond_vol_daily / uncond_vol if uncond_vol > 1e-10 else 1.0
         return float(np.clip(scale, *self.bounds.garch_scale_clamp))
 
     def _garch_current_annual_variance(self) -> float | None:
@@ -1062,17 +1071,13 @@ class EnsembleForecaster:
 
     def _build_detector(self) -> Any:
         if self.detector_type == "hmm":
-            return HMMRegimeDetector(
-                n_components=self.n_regimes, random_state=self.random_state
-            )
+            return HMMRegimeDetector(n_components=self.n_regimes, random_state=self.random_state)
         elif self.detector_type == "ms_garch":
             return MarkovSwitchingGARCH(k_regimes=self.n_regimes)
         elif self.detector_type == "ensemble":
             return EnsembleRegimeDetector(
                 detectors=[
-                    HMMRegimeDetector(
-                        n_components=self.n_regimes, random_state=self.random_state
-                    ),
+                    HMMRegimeDetector(n_components=self.n_regimes, random_state=self.random_state),
                     MarkovSwitchingGARCH(k_regimes=self.n_regimes),
                 ],
                 method="proba_average",
@@ -1091,14 +1096,10 @@ class EnsembleForecaster:
         if self.use_features and self.detector_type in ("hmm", "ensemble"):
             from synthquant.regime.features import build_hmm_features
 
-            return build_hmm_features(
-                returns, feature_names=self.feature_names
-            )
+            return build_hmm_features(returns, feature_names=self.feature_names)
         return returns
 
-    def _estimate_transition_matrix(
-        self, returns: np.ndarray, labels: np.ndarray
-    ) -> np.ndarray:
+    def _estimate_transition_matrix(self, returns: np.ndarray, labels: np.ndarray) -> np.ndarray:
         if hasattr(self._detector, "_model") and hasattr(
             getattr(self._detector, "_model", None), "transmat_"
         ):

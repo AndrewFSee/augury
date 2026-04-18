@@ -1,9 +1,11 @@
 # SynthQuant Engine
 
-![CI](https://github.com/AndrewFSee/synthquant/actions/workflows/ci.yml/badge.svg?branch=main)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![PyPI](https://img.shields.io/pypi/v/synthquant)
+[![CI](https://github.com/AndrewFSee/synthquant/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndrewFSee/synthquant/actions/workflows/ci.yml)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
+![NumPy](https://img.shields.io/badge/numpy-%E2%89%A51.24-013243?logo=numpy&logoColor=white)
+![SciPy](https://img.shields.io/badge/scipy-%E2%89%A51.10-8caae6?logo=scipy&logoColor=white)
+![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=d7ff64)
 
 **SynthQuant** is a production-grade synthetic financial data generation and probabilistic forecasting platform. It combines regime detection, stochastic volatility models, Monte Carlo simulation, and risk analytics into a unified, extensible Python framework.
 
@@ -11,7 +13,7 @@
   <img src="docs/fan_chart.png" alt="SPY 24-hour probabilistic forecast fan chart" width="100%">
 </p>
 
-<p align="center"><em>24-hour probabilistic price forecast for SPY — 500 MC paths at 5-minute intervals via EnsembleForecaster (Heston + Merton JD + Regime-Switching + Rough Bergomi). Percentile bands show the full predicted distribution with fat tails and negative skew from GJR-GARCH calibration.</em></p>
+<p align="center"><em>5-day probabilistic price forecast for SPY — 500 MC paths at 30-minute intervals (market hours only) via EnsembleForecaster (Heston + Merton JD + Regime-Switching + Rough Bergomi). Percentile bands show the full predicted distribution with fat tails and negative skew from GJR-GARCH calibration.</em></p>
 
 ---
 
@@ -203,45 +205,94 @@ Portfolio stress test (SPY 60% / TLT 30% / GLD 10%) using GARCH-calibrated scena
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        SynthQuant Engine                        │
-├──────────────┬──────────────┬───────────────┬───────────────────┤
-│  Data Layer  │ Regime Layer │  Model Layer  │ Simulation Layer  │
-│              │              │               │                   │
-│ • Ingest     │ • HMM        │ • GARCH       │ • GBM Engine      │
-│ • Features   │ • MS-GARCH   │ • Heston      │ • Heston Engine   │
-│ • Storage    │ • Clustering │ • Merton JD   │ • Merton JD Eng.  │
-│   (Parquet)  │ • Ensemble   │ • Rough Vol   │ • Regime Switch.  │
-│ • Market     │ • Features   │ • HAR-RV      │ • Rough Bergomi   │
-│   Data API   │ • Market Adj │ • Calibration │ • Variance Reduc. │
-│ • Realized   │              │               │ • Copula Corr.    │
-│   Measures   │              │               │ • GPU Engine      │
-├──────────────┴──────────────┴───────────────┴───────────────────┤
-│                     Forecasting Layer                           │
-│  • ProbabilisticForecaster  • EnsembleForecaster               │
-│  • GJR-GARCH skewt          • VIX/SKEW blending               │
-│  • Walk-forward scoring      • CRPS / PIT / KS diagnostics    │
-│  • Intraday 5-min paths      • CRPS-optimal engine weights    │
-├─────────────────────────────────────────────────────────────────┤
-│                       Analytics Layer                           │
-│  • VaR / CVaR / ES   • Drawdown Distribution  • Tail Ratio     │
-│  • MC Option Pricing • Implied Vol Surface    • Greeks          │
-│  • CRPS / PIT / KS   • Rolling Moments        • Jarque-Bera    │
-│  • Synth Multi-Scale CRPS    • Percentile Capping & EWMA      │
-├──────────────────────────────┬──────────────────────────────────┤
-│        Strategy Layer        │          API / Dashboard         │
-│  • Kelly Criterion           │  • FastAPI REST + WebSocket      │
-│  • Risk Parity               │  • Streamlit Dashboard           │
-│  • CVaR-Optimal Sizing       │  • Plotly Visualizations         │
-│  • Regime Signals            │                                  │
-│  • Forecast Signals          │                                  │
-│  • Predictive Allocator      │                                  │
-│  • Signal Tuner              │                                  │
-│  • Delta/Gamma Hedging       │                                  │
-│  • Walk-Forward Backtest     │                                  │
-└──────────────────────────────┴──────────────────────────────────┘
-```
+<table>
+<tr>
+<td colspan="4" align="center"><h3>SynthQuant Engine</h3></td>
+</tr>
+
+<tr>
+<td valign="top" width="25%">
+
+**Data Layer**
+- Ingest (yfinance)
+- Feature Engineering
+- Parquet Storage
+- Market Data API
+- Realized Measures
+
+</td>
+<td valign="top" width="25%">
+
+**Regime Layer**
+- HMM
+- MS-GARCH
+- GMM Clustering
+- Ensemble Detector
+- Regime Features
+- Market Adjustment
+
+</td>
+<td valign="top" width="25%">
+
+**Model Layer**
+- GARCH / GJR-GARCH
+- Heston Stochastic Vol
+- Merton Jump-Diffusion
+- Rough Bergomi
+- HAR-RV
+- Bayesian Calibration
+
+</td>
+<td valign="top" width="25%">
+
+**Simulation Layer**
+- GBM Engine
+- Heston Engine
+- Merton JD Engine
+- Regime-Switching
+- Rough Bergomi
+- Variance Reduction
+- Copula Correlation
+- GPU Engine
+
+</td>
+</tr>
+
+<tr>
+<td colspan="4">
+
+**Forecasting Layer** &mdash; `ProbabilisticForecaster` · `EnsembleForecaster` · GJR-GARCH skewt · VIX/SKEW blending · Walk-forward scoring · CRPS-optimal engine weights · Intraday 5-min paths · CRPS / PIT / KS diagnostics
+
+</td>
+</tr>
+
+<tr>
+<td colspan="4">
+
+**Analytics Layer** &mdash; VaR / CVaR / ES · Drawdown Distribution · Tail Ratio · MC Option Pricing · Implied Vol Surface · Greeks · CRPS / PIT / KS · Rolling Moments · Jarque-Bera · Synth Multi-Scale CRPS · Percentile Capping & EWMA
+
+</td>
+</tr>
+
+<tr>
+<td colspan="2" valign="top">
+
+**Strategy Layer**
+- Kelly Criterion · Risk Parity · CVaR-Optimal Sizing
+- Regime Signals · Forecast Signals · Predictive Allocator
+- Signal Tuner · Delta/Gamma Hedging · Walk-Forward Backtest
+
+</td>
+<td colspan="2" valign="top">
+
+**API / Dashboard**
+- FastAPI REST + WebSocket
+- Streamlit Dashboard
+- Plotly Visualizations
+
+</td>
+</tr>
+</table>
 
 ---
 

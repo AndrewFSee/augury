@@ -117,12 +117,12 @@ class EnsembleRegimeDetector:
                 best_perm: tuple[int, ...] = tuple(range(n_regimes))
                 best_acc = -1.0
                 for perm in permutations(range(n_regimes)):
-                    remapped = np.array([perm[l] for l in labels])
+                    remapped = np.array([perm[lbl] for lbl in labels])
                     acc = np.mean(remapped == reference)
                     if acc > best_acc:
                         best_acc = acc
                         best_perm = perm
-                aligned.append(np.array([best_perm[l] for l in labels]))
+                aligned.append(np.array([best_perm[lbl] for lbl in labels]))
 
         return aligned
 
@@ -167,9 +167,7 @@ class EnsembleRegimeDetector:
         avg_proba = self.predict_proba_filtered(features)
         return np.argmax(avg_proba, axis=1)
 
-    def _predict_proba_impl(
-        self, features: np.ndarray, *, filtered: bool
-    ) -> np.ndarray:
+    def _predict_proba_impl(self, features: np.ndarray, *, filtered: bool) -> np.ndarray:
         """Shared implementation for smoothed and filtered probability averaging."""
         probas = []
         for d in self.detectors:
@@ -198,7 +196,7 @@ class EnsembleRegimeDetector:
                     best_perm: tuple[int, ...] = tuple(range(n_regimes))
                     best_acc = -1.0
                     for perm in permutations(range(n_regimes)):
-                        remapped = np.array([perm[l] for l in labels[idx]])
+                        remapped = np.array([perm[lbl] for lbl in labels[idx]])
                         acc = np.mean(remapped == reference)
                         if acc > best_acc:
                             best_acc = acc
@@ -221,6 +219,4 @@ class EnsembleRegimeDetector:
         for det in self.detectors:
             if hasattr(det, "get_regime_params"):
                 return det.get_regime_params()
-        raise AttributeError(
-            "None of the ensemble detectors implement get_regime_params()"
-        )
+        raise AttributeError("None of the ensemble detectors implement get_regime_params()")

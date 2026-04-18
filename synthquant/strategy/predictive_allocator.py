@@ -107,8 +107,7 @@ class PredictiveAllocator:
     ) -> None:
         if not 0 <= crisis_weight <= calm_weight <= 1.0:
             raise ValueError(
-                f"Need 0 <= crisis_weight ({crisis_weight}) "
-                f"<= calm_weight ({calm_weight}) <= 1"
+                f"Need 0 <= crisis_weight ({crisis_weight}) <= calm_weight ({calm_weight}) <= 1"
             )
         self.calm_weight = calm_weight
         self.crisis_weight = crisis_weight
@@ -153,9 +152,8 @@ class PredictiveAllocator:
         # ---- 1. Base regime-weighted exposure (same as RegimeAllocator) ----
         n_regimes = len(proba)
         if n_regimes == 2:
-            base_exposure = (
-                self.calm_weight * float(proba[0])
-                + self.crisis_weight * float(proba[1])
+            base_exposure = self.calm_weight * float(proba[0]) + self.crisis_weight * float(
+                proba[1]
             )
         else:
             weights = np.linspace(self.calm_weight, self.crisis_weight, n_regimes)
@@ -182,7 +180,7 @@ class PredictiveAllocator:
         # ---- 4. Volatility targeting overlay ----
         vol_scale = 1.0
         if self.vol_target is not None and len(returns) >= 5:
-            lookback_rets = returns[-self.vol_lookback:]
+            lookback_rets = returns[-self.vol_lookback :]
             if len(lookback_rets) >= 5:
                 realised_vol = float(np.std(lookback_rets)) * np.sqrt(252)
                 if realised_vol > 0:
@@ -205,6 +203,9 @@ class PredictiveAllocator:
 
         logger.debug(
             "PredictiveAllocator: exposure=%.2f base=%.2f adj=%.3f composite=%.3f",
-            exposure, base_exposure, adjustment, signal.composite,
+            exposure,
+            base_exposure,
+            adjustment,
+            signal.composite,
         )
         return result

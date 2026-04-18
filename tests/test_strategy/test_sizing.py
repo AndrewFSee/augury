@@ -9,6 +9,7 @@ from synthquant.strategy.sizing import CVaROptimalSizer, KellyCriterion, RiskPar
 
 # ── Kelly Criterion ────────────────────────────────────────────────────────────
 
+
 def test_kelly_full_positive_expected_returns() -> None:
     """Full Kelly is positive for a return series with positive mean."""
     rng = np.random.default_rng(42)
@@ -58,6 +59,7 @@ def test_kelly_invalid_fraction_raises() -> None:
 
 # ── Risk Parity Sizer ──────────────────────────────────────────────────────────
 
+
 def test_risk_parity_weights_sum_to_one() -> None:
     """RiskParitySizer weights sum to 1 (approximately)."""
     rng = np.random.default_rng(42)
@@ -88,6 +90,7 @@ def test_risk_parity_equal_vol_gives_equal_weights() -> None:
 
 
 # ── CVaR Optimal Sizer ────────────────────────────────────────────────────────
+
 
 def test_cvar_sizer_returns_valid_size() -> None:
     """CVaROptimalSizer returns a size in [0, 1]."""

@@ -119,7 +119,6 @@ def importance_sampling(
     weights = np.where(terminal <= threshold, 1.0 / target_quantile, 1.0)
     weights = weights / weights.sum() * len(weights)
     logger.debug(
-        f"Importance sampling: target_quantile={target_quantile}, "
-        f"threshold={threshold:.4f}"
+        f"Importance sampling: target_quantile={target_quantile}, threshold={threshold:.4f}"
     )
     return weights

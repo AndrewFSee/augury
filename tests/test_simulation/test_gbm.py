@@ -46,8 +46,7 @@ def test_gbm_mean_convergence() -> None:
     dt = T / n_steps
     # Use large n_paths for statistical accuracy
     paths = engine.simulate(
-        n_paths=50_000, n_steps=n_steps, dt=dt, S0=S0, mu=mu, sigma=0.20,
-        random_state=0
+        n_paths=50_000, n_steps=n_steps, dt=dt, S0=S0, mu=mu, sigma=0.20, random_state=0
     )
     expected_mean = S0 * np.exp(mu * T)
     actual_mean = float(np.mean(paths[:, -1]))
@@ -65,7 +64,12 @@ def test_gbm_log_return_variance() -> None:
     dt = 1 / 252
     n_steps = 252
     paths = engine.simulate(
-        n_paths=20_000, n_steps=n_steps, dt=dt, S0=100.0, mu=mu, sigma=sigma,
+        n_paths=20_000,
+        n_steps=n_steps,
+        dt=dt,
+        S0=100.0,
+        mu=mu,
+        sigma=sigma,
         random_state=1,
     )
     log_returns = np.log(paths[:, -1] / paths[:, 0])

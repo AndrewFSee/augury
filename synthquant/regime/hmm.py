@@ -86,9 +86,7 @@ class HMMRegimeDetector:
         try:
             from hmmlearn.hmm import GaussianHMM
         except ImportError as e:
-            raise ImportError(
-                "hmmlearn is required. Install with: pip install synthquant"
-            ) from e
+            raise ImportError("hmmlearn is required. Install with: pip install synthquant") from e
 
         X = self._to_obs(returns)
         self._n_features = X.shape[1]
@@ -192,23 +190,24 @@ class HMMRegimeDetector:
         n, d = X.shape
         k = self.n_components
 
-        startprob = self._model.startprob_   # (k,)
-        transmat = self._model.transmat_     # (k, k)
+        startprob = self._model.startprob_  # (k,)
+        transmat = self._model.transmat_  # (k, k)
 
         if d == 1:
             return self._forward_univariate(X.ravel(), n, k, startprob, transmat)
         return self._forward_multivariate(X, n, k, d, startprob, transmat)
 
     def _forward_univariate(
-        self, x: np.ndarray, n: int, k: int,
-        startprob: np.ndarray, transmat: np.ndarray,
+        self,
+        x: np.ndarray,
+        n: int,
+        k: int,
+        startprob: np.ndarray,
+        transmat: np.ndarray,
     ) -> np.ndarray:
         """Forward pass for univariate observations."""
         means = self._model.means_.ravel()  # (k,)
-        variances = np.array([
-            abs(float(self._model.covars_[i].flat[0]))
-            for i in range(k)
-        ])
+        variances = np.array([abs(float(self._model.covars_[i].flat[0])) for i in range(k)])
         stds = np.sqrt(variances)
 
         alpha = np.empty((n, k), dtype=float)
@@ -230,12 +229,17 @@ class HMMRegimeDetector:
         return alpha
 
     def _forward_multivariate(
-        self, X: np.ndarray, n: int, k: int, d: int,
-        startprob: np.ndarray, transmat: np.ndarray,
+        self,
+        X: np.ndarray,
+        n: int,
+        k: int,
+        d: int,
+        startprob: np.ndarray,
+        transmat: np.ndarray,
     ) -> np.ndarray:
         """Forward pass for multivariate observations."""
-        means = self._model.means_       # (k, d)
-        covars = self._model.covars_      # (k, d, d) expanded
+        means = self._model.means_  # (k, d)
+        covars = self._model.covars_  # (k, d, d) expanded
 
         # Pre-build frozen multivariate normal distributions per state
         mvn_pdfs = []
@@ -318,14 +322,10 @@ class HMMRegimeDetector:
 
         if self._n_features == 1:
             # Univariate: use scalar variance
-            variances = np.array([
-                abs(float(covars_expanded[i].flat[0])) for i in range(k)
-            ])
+            variances = np.array([abs(float(covars_expanded[i].flat[0])) for i in range(k)])
         else:
             # Multivariate: use trace of covariance (total variance)
-            variances = np.array([
-                float(np.trace(covars_expanded[i])) for i in range(k)
-            ])
+            variances = np.array([float(np.trace(covars_expanded[i])) for i in range(k)])
 
         order = np.argsort(variances)
         if np.array_equal(order, np.arange(k)):

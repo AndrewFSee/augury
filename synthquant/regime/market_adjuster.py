@@ -82,7 +82,7 @@ class MarketRegimeAdjuster:
 
     def compute_crisis_score(
         self,
-        market_data: "MarketSnapshot",
+        market_data: MarketSnapshot,
     ) -> float:
         """Compute composite crisis evidence from market-implied data.
 
@@ -133,16 +133,14 @@ class MarketRegimeAdjuster:
             return 0.0
 
         total_weight = sum(active_weights.values())
-        composite = sum(
-            components[k] * active_weights[k] for k in active_weights
-        ) / total_weight
+        composite = sum(components[k] * active_weights[k] for k in active_weights) / total_weight
 
         return float(_clip_signal(composite))
 
     def adjust(
         self,
         hmm_proba: np.ndarray,
-        market_data: "MarketSnapshot | None",
+        market_data: MarketSnapshot | None,
     ) -> np.ndarray:
         """Adjust HMM regime probabilities using market-implied evidence.
 

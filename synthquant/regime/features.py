@@ -35,6 +35,7 @@ __all__ = [
 # Rolling helpers (pure numpy, no pandas dependency)
 # ------------------------------------------------------------------ #
 
+
 def _rolling_sum(r: np.ndarray, window: int) -> np.ndarray:
     """Rolling sum with expanding warmup. Vectorized via cumsum."""
     n = len(r)
@@ -68,14 +69,14 @@ def _rolling_std(r: np.ndarray, window: int) -> np.ndarray:
     out = np.empty(n, dtype=float)
     # Use cumsum-based E[X^2] - E[X]^2
     cs = np.cumsum(r)
-    cs2 = np.cumsum(r ** 2)
+    cs2 = np.cumsum(r**2)
 
     # Expanding warmup period
     for t in range(min(window, n)):
         cnt = t + 1
         if cnt > 1:
             mean = cs[t] / cnt
-            var = cs2[t] / cnt - mean ** 2
+            var = cs2[t] / cnt - mean**2
             out[t] = np.sqrt(max(var, 0.0))
         else:
             out[t] = abs(r[t])
@@ -85,7 +86,7 @@ def _rolling_std(r: np.ndarray, window: int) -> np.ndarray:
         s1 = cs[window:] - cs[:-window]
         s2 = cs2[window:] - cs2[:-window]
         mean = s1 / window
-        var = s2 / window - mean ** 2
+        var = s2 / window - mean**2
         out[window:] = np.sqrt(np.maximum(var, 0.0))
 
     return out
@@ -161,9 +162,7 @@ def _feat_realized_skew(r: np.ndarray, params: dict) -> np.ndarray:
         valid = sigma > 1e-12
         if np.any(valid):
             centered = views[valid] - mu[valid, None]
-            out[window - 1 :][valid] = np.mean(
-                (centered / sigma[valid, None]) ** 3, axis=1
-            )
+            out[window - 1 :][valid] = np.mean((centered / sigma[valid, None]) ** 3, axis=1)
     # Expanding warmup for early elements
     for t in range(min(window - 1, n)):
         w = r[: t + 1]
@@ -190,9 +189,7 @@ def _feat_realized_kurt(r: np.ndarray, params: dict) -> np.ndarray:
         valid = sigma > 1e-12
         if np.any(valid):
             centered = views[valid] - mu[valid, None]
-            out[window - 1 :][valid] = (
-                np.mean((centered / sigma[valid, None]) ** 4, axis=1) - 3.0
-            )
+            out[window - 1 :][valid] = np.mean((centered / sigma[valid, None]) ** 4, axis=1) - 3.0
     for t in range(min(window - 1, n)):
         w = r[: t + 1]
         if len(w) < 4:
@@ -250,7 +247,7 @@ def _feat_return_autocorr(r: np.ndarray, params: dict) -> np.ndarray:
 def _feat_ewma_vol(r: np.ndarray, params: dict) -> np.ndarray:
     """EWMA volatility (exponentially weighted std)."""
     span = params.get("ewma_span", 21)
-    sq = r ** 2
+    sq = r**2
     ewma_var = _ewma(sq, span)
     return np.sqrt(np.maximum(ewma_var, 0.0))
 
@@ -309,6 +306,7 @@ DEFAULT_FEATURE_NAMES: list[str] = ["returns", "signed_vol", "momentum"]
 # Public builder
 # ------------------------------------------------------------------ #
 
+
 def build_hmm_features(
     returns: np.ndarray,
     *,
@@ -349,8 +347,7 @@ def build_hmm_features(
         builder = FEATURE_REGISTRY.get(name)
         if builder is None:
             raise ValueError(
-                f"Unknown feature '{name}'. "
-                f"Available: {sorted(FEATURE_REGISTRY.keys())}"
+                f"Unknown feature '{name}'. Available: {sorted(FEATURE_REGISTRY.keys())}"
             )
         cols.append(builder(r, params))
 

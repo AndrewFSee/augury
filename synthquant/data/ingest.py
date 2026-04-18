@@ -160,9 +160,7 @@ class DataIngestor:
                 logger.warning(f"Source {source.name} failed for {symbol}: {e}")
                 errors.append(f"{source.name}: {e}")
 
-        raise RuntimeError(
-            f"All data sources failed for {symbol}:\n" + "\n".join(errors)
-        )
+        raise RuntimeError(f"All data sources failed for {symbol}:\n" + "\n".join(errors))
 
     def fetch_multiple(
         self,

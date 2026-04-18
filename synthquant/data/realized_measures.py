@@ -57,7 +57,7 @@ class RealizedMeasures:
         if step > 1:
             n_blocks = len(r) // step
             r = np.sum(r[: n_blocks * step].reshape(n_blocks, step), axis=1)
-        return float(np.sum(r ** 2))
+        return float(np.sum(r**2))
 
     @staticmethod
     def bipower_variation(returns: np.ndarray) -> float:
@@ -73,7 +73,7 @@ class RealizedMeasures:
         """
         r = np.asarray(returns, dtype=float)
         if len(r) < 2:
-            return float(np.sum(r ** 2))
+            return float(np.sum(r**2))
         abs_r = np.abs(r)
         return float((np.pi / 2) * np.sum(abs_r[1:] * abs_r[:-1]))
 
@@ -92,8 +92,8 @@ class RealizedMeasures:
         r = np.asarray(returns, dtype=float)
         neg = r[r < 0]
         pos = r[r >= 0]
-        rv_down = float(np.sum(neg ** 2)) if len(neg) > 0 else 0.0
-        rv_up = float(np.sum(pos ** 2)) if len(pos) > 0 else 0.0
+        rv_down = float(np.sum(neg**2)) if len(neg) > 0 else 0.0
+        rv_up = float(np.sum(pos**2)) if len(pos) > 0 else 0.0
         return rv_down, rv_up
 
     @staticmethod
@@ -144,7 +144,7 @@ class RealizedMeasures:
             bandwidth = max(1, int(n ** (2 / 3)))
 
         # Autocovariance at lag h
-        gamma_0 = float(np.sum(r ** 2))
+        gamma_0 = float(np.sum(r**2))
         rk = gamma_0
 
         for h in range(1, bandwidth + 1):
@@ -152,7 +152,7 @@ class RealizedMeasures:
             x = h / (bandwidth + 1)
 
             if kernel == "parzen":
-                k = 1 - 6 * x ** 2 + 6 * x ** 3 if x <= 0.5 else 2 * (1 - x) ** 3
+                k = 1 - 6 * x**2 + 6 * x**3 if x <= 0.5 else 2 * (1 - x) ** 3
             elif kernel == "bartlett":
                 k = 1 - x
             else:
@@ -200,9 +200,7 @@ class RealizedMeasures:
         lo = np.asarray(low, dtype=float)
         cl = np.asarray(close, dtype=float)
 
-        return float(np.mean(
-            0.5 * (hi - lo) ** 2 - (2 * np.log(2) - 1) * (cl - op) ** 2
-        ))
+        return float(np.mean(0.5 * (hi - lo) ** 2 - (2 * np.log(2) - 1) * (cl - op) ** 2))
 
     @staticmethod
     def multi_frequency_rv(
@@ -261,7 +259,7 @@ class RealizedMeasures:
 
         for i in range(n_periods):
             block = r[i * window : (i + 1) * window]
-            rv[i] = float(np.sum(block ** 2))
+            rv[i] = float(np.sum(block**2))
             bpv[i] = RealizedMeasures.bipower_variation(block)
             jump[i] = max(rv[i] - bpv[i], 0.0)
             d, u = RealizedMeasures.realized_semivariance(block)

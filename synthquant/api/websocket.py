@@ -16,8 +16,7 @@ try:
     from fastapi import WebSocket, WebSocketDisconnect
 except ImportError as e:
     raise ImportError(
-        "FastAPI is required for WebSocket support. "
-        "Install with: pip install synthquant[api]"
+        "FastAPI is required for WebSocket support. Install with: pip install synthquant[api]"
     ) from e
 
 

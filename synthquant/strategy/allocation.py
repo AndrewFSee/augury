@@ -54,14 +54,14 @@ class MeanCVaROptimizer:
         n_vars = n_assets + 1 + n_scenarios
         c = np.zeros(n_vars)
         c[n_assets] = 1.0  # z
-        c[n_assets + 1:] = 1.0 / (alpha * n_scenarios)  # u_i
+        c[n_assets + 1 :] = 1.0 / (alpha * n_scenarios)  # u_i
 
         # u_i >= -R_i.w - z  =>  R_i.w + z + u_i >= 0
         # As <= constraint: -R_i.w - z - u_i <= 0
         A_ub = np.zeros((n_scenarios, n_vars))
         A_ub[:, :n_assets] = -R
         A_ub[:, n_assets] = -1.0
-        A_ub[:, n_assets + 1:] = -np.eye(n_scenarios)
+        A_ub[:, n_assets + 1 :] = -np.eye(n_scenarios)
         b_ub = np.zeros(n_scenarios)
 
         # sum(w) = 1

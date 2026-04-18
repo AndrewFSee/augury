@@ -106,9 +106,7 @@ def max_drawdown_distribution(paths: np.ndarray) -> np.ndarray:
     cummax = np.maximum.accumulate(paths, axis=1)
     drawdown = (paths - cummax) / cummax
     max_dd = np.min(drawdown, axis=1)
-    logger.debug(
-        f"Max drawdown distribution: mean={max_dd.mean():.4f}, min={max_dd.min():.4f}"
-    )
+    logger.debug(f"Max drawdown distribution: mean={max_dd.mean():.4f}, min={max_dd.min():.4f}")
     return max_dd
 
 

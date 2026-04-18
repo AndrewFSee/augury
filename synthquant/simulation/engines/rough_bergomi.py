@@ -65,9 +65,7 @@ class RoughBergomiEngine(SimulationEngine):
         kernel = np.zeros(n_steps)
         kernel[0] = dt**alpha / (1 + alpha) if alpha > -1 else 1.0
         for j in range(1, n_steps):
-            kernel[j] = (
-                ((j + 1) ** (alpha + 1) - j ** (alpha + 1)) * dt**alpha / (alpha + 1)
-            )
+            kernel[j] = ((j + 1) ** (alpha + 1) - j ** (alpha + 1)) * dt**alpha / (alpha + 1)
 
         # Correlated Brownian increments
         cov = np.array([[1.0, rho], [rho, 1.0]])
@@ -93,9 +91,7 @@ class RoughBergomiEngine(SimulationEngine):
             t = k * dt
             v = xi * np.exp(eta * fBm[:, k] - 0.5 * eta**2 * t ** (2 * H))
             v_pos = np.maximum(v, 0.0)
-            S[:, k + 1] = S[:, k] * np.exp(
-                (mu - 0.5 * v_pos) * dt + np.sqrt(v_pos) * dW_S[:, k]
-            )
+            S[:, k + 1] = S[:, k] * np.exp((mu - 0.5 * v_pos) * dt + np.sqrt(v_pos) * dW_S[:, k])
 
         logger.debug(f"RoughBergomiEngine simulated {n_paths} paths x {n_steps} steps")
         return S

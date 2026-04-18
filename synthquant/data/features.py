@@ -148,9 +148,7 @@ class FeatureEngine:
         signal_line = macd_line.ewm(span=signal, adjust=False).mean()
         histogram = macd_line - signal_line
         logger.debug(f"Computed MACD({fast},{slow},{signal})")
-        return pd.DataFrame(
-            {"macd": macd_line, "signal": signal_line, "histogram": histogram}
-        )
+        return pd.DataFrame({"macd": macd_line, "signal": signal_line, "histogram": histogram})
 
     def bollinger_bands(
         self,

@@ -174,14 +174,28 @@ class MCOptionPricer:
         sigma_down = vol * (1 - bump_size)
         scale_up = sigma_up / vol if vol > 0 else 1.0
         scale_down = sigma_down / vol if vol > 0 else 1.0
-        price_vol_up = self.price_european(
-            paths[:, 0:1] * np.exp(np.cumsum(log_ret * scale_up, axis=1)),
-            K, T, r, option_type,
-        ) if vol > 0 else base_price
-        price_vol_down = self.price_european(
-            paths[:, 0:1] * np.exp(np.cumsum(log_ret * scale_down, axis=1)),
-            K, T, r, option_type,
-        ) if vol > 0 else base_price
+        price_vol_up = (
+            self.price_european(
+                paths[:, 0:1] * np.exp(np.cumsum(log_ret * scale_up, axis=1)),
+                K,
+                T,
+                r,
+                option_type,
+            )
+            if vol > 0
+            else base_price
+        )
+        price_vol_down = (
+            self.price_european(
+                paths[:, 0:1] * np.exp(np.cumsum(log_ret * scale_down, axis=1)),
+                K,
+                T,
+                r,
+                option_type,
+            )
+            if vol > 0
+            else base_price
+        )
         vega = (price_vol_up - price_vol_down) / (2 * bump_size * vol) if vol > 0 else 0.0
 
         return {"delta": delta, "gamma": gamma, "vega": vega}
@@ -247,7 +261,5 @@ class ImpliedVolSurface:
                 except ValueError:
                     pass
 
-        logger.info(
-            f"ImpliedVolSurface computed: {n_mat} maturities x {n_strikes} strikes"
-        )
+        logger.info(f"ImpliedVolSurface computed: {n_mat} maturities x {n_strikes} strikes")
         return iv_surface

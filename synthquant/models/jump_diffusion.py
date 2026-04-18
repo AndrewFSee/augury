@@ -82,9 +82,7 @@ class MertonJumpDiffusion:
 
         log_returns = drift + diffusion * Z + log_jump
         log_paths = np.cumsum(log_returns, axis=1)
-        paths = S0 * np.exp(
-            np.concatenate([np.zeros((n_paths, 1)), log_paths], axis=1)
-        )
+        paths = S0 * np.exp(np.concatenate([np.zeros((n_paths, 1)), log_paths], axis=1))
         logger.debug(f"MertonJD simulated {n_paths} paths x {n_steps} steps")
         return paths
 
@@ -201,8 +199,6 @@ class KouModel:
 
         log_returns = drift + diffusion * Z + log_jump
         log_paths = np.cumsum(log_returns, axis=1)
-        paths = S0 * np.exp(
-            np.concatenate([np.zeros((n_paths, 1)), log_paths], axis=1)
-        )
+        paths = S0 * np.exp(np.concatenate([np.zeros((n_paths, 1)), log_paths], axis=1))
         logger.debug(f"KouModel simulated {n_paths} paths x {n_steps} steps")
         return paths

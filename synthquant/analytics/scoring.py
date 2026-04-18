@@ -37,9 +37,7 @@ class ForecastScorer:
 
         # CRPS = E[|X - y|] - 0.5 * E[|X - X'|]
         mae = np.mean(np.abs(F - y[:, np.newaxis]), axis=1)
-        spread = np.mean(
-            np.abs(F[:, :, np.newaxis] - F[:, np.newaxis, :]), axis=(1, 2)
-        ) / 2
+        spread = np.mean(np.abs(F[:, :, np.newaxis] - F[:, np.newaxis, :]), axis=(1, 2)) / 2
         crps_vals = mae - spread
         result = float(np.mean(crps_vals))
         logger.debug(f"CRPS = {result:.6f}")
@@ -116,7 +114,7 @@ class ForecastScorer:
             "empirical_coverage": float(covered),
             "coverage_error": float(covered - (1 - alpha)),
         }
-        logger.debug(f"Coverage test: empirical={covered:.4f}, nominal={1-alpha:.4f}")
+        logger.debug(f"Coverage test: empirical={covered:.4f}, nominal={1 - alpha:.4f}")
         return result
 
     @staticmethod
