@@ -1,6 +1,5 @@
 # SynthQuant Engine
 
-[![CI](https://github.com/AndrewFSee/synthquant/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndrewFSee/synthquant/actions/workflows/ci.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
 ![NumPy](https://img.shields.io/badge/numpy-%E2%89%A51.24-013243?logo=numpy&logoColor=white)
