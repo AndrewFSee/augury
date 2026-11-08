@@ -71,21 +71,39 @@ def test_default_parameters(engine) -> None:
     np.testing.assert_allclose(paths[:, 0], 100.0)
 
 
-def test_higher_eta_increases_spread(engine) -> None:
-    """Higher eta (vol-of-vol) -> wider terminal price distribution."""
-    p_low = engine.simulate(2000, 252, 1 / 252, eta=0.5, random_state=42)
-    p_high = engine.simulate(2000, 252, 1 / 252, eta=3.0, random_state=42)
-    assert np.std(p_high[:, -1]) > np.std(p_low[:, -1])
+def test_higher_eta_fattens_tails(engine) -> None:
+    """Higher eta (vol-of-vol) -> fatter tails; E[V] = xi keeps variance ~fixed."""
+    from scipy.stats import kurtosis
+
+    r_low = np.log(engine.simulate(20_000, 63, 1 / 252, eta=0.5, random_state=0)[:, -1] / 100)
+    r_high = np.log(engine.simulate(20_000, 63, 1 / 252, eta=3.0, random_state=0)[:, -1] / 100)
+    assert kurtosis(r_high) > kurtosis(r_low) + 5.0
 
 
-def test_lower_hurst_rougher_paths(engine) -> None:
-    """Lower H produces rougher (more jagged) price paths."""
-    p_smooth = engine.simulate(1000, 252, 1 / 252, H=0.45, eta=1.0, random_state=42)
-    p_rough = engine.simulate(1000, 252, 1 / 252, H=0.05, eta=1.0, random_state=42)
-    # Rougher paths have higher variance in log-return increments
-    inc_smooth = np.diff(np.log(p_smooth), axis=1)
-    inc_rough = np.diff(np.log(p_rough), axis=1)
-    assert np.std(inc_rough) > np.std(inc_smooth)
+@pytest.mark.parametrize(("H", "eta"), [(0.05, 1.9), (0.1, 1.9), (0.3, 1.0)])
+def test_mean_variance_matches_xi(engine, H: float, eta: float) -> None:
+    """E[V(t)] = xi, so E[log S_T] = (mu - xi/2) T and Var[log S_T] ~= xi T.
+
+    Regression test: the Volterra process previously lacked its sqrt(2H)
+    normalisation, inflating variance ~5x at H=0.1, eta=1.9.
+    """
+    xi, T = 0.04, 63 / 252
+    p = engine.simulate(40_000, 63, 1 / 252, xi=xi, H=H, eta=eta, mu=0.0, random_state=0)
+    r = np.log(p[:, -1] / p[:, 0])
+    assert np.mean(r) == pytest.approx(-0.5 * xi * T, abs=0.001)
+    assert np.std(r) == pytest.approx(np.sqrt(xi * T), rel=0.06)
+
+
+def test_lower_hurst_rougher_volatility(engine) -> None:
+    """Lower H -> rougher volatility: larger week-to-week changes in log RV."""
+
+    def weekly_log_rv_roughness(H: float) -> float:
+        p = engine.simulate(2000, 250, 1 / 252, H=H, eta=1.0, rho=0.0, random_state=1)
+        r = np.diff(np.log(p), axis=1)
+        rv = (r**2).reshape(2000, -1, 5).sum(axis=2)
+        return float(np.std(np.diff(np.log(rv), axis=1)))
+
+    assert weekly_log_rv_roughness(0.05) > weekly_log_rv_roughness(0.45) + 0.05
 
 
 def test_is_simulation_engine_subclass() -> None:

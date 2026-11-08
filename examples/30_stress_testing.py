@@ -22,10 +22,11 @@ Use case:
 """
 
 import time
+
 import numpy as np
-import pandas as pd
 import yfinance as yf
 from arch import arch_model
+
 from synthquant.regime.hmm import HMMRegimeDetector
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ def log(msg=""):
 
 log("=" * 80)
 log("  STRESS TESTING & SCENARIO ANALYSIS")
-log(f"  Portfolio: {' / '.join(f'{t} {w:.0%}' for t, w in zip(TICKERS, WEIGHTS))}")
+log(f"  Portfolio: {' / '.join(f'{t} {w:.0%}' for t, w in zip(TICKERS, WEIGHTS, strict=False))}")
 log(f"  Horizon: {HORIZON} days  |  Paths: {N_PATHS:,}")
 log("=" * 80)
 
@@ -328,7 +329,7 @@ for name, sr in scenario_results.items():
 # ── Historical comparison ────────────────────────────────────────────
 log(f"\n{'=' * 80}")
 log("  HISTORICAL VALIDATION")
-log(f"  How do simulated stress scenarios compare to actual crises?")
+log("  How do simulated stress scenarios compare to actual crises?")
 log("=" * 80)
 
 # Compute actual portfolio returns for historical crisis periods
@@ -433,5 +434,5 @@ log(f"  Total runtime: {total:.0f}s")
 
 with open("_stress_test_output.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(output_lines))
-log(f"  Output saved to _stress_test_output.txt")
+log("  Output saved to _stress_test_output.txt")
 log("=" * 80)

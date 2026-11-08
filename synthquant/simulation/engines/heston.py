@@ -35,7 +35,7 @@ class HestonEngine(SimulationEngine):
         rho: float = -0.7,
         random_state: int | np.random.Generator | None = None,
     ) -> np.ndarray:
-        """Simulate Heston price paths via QE scheme.
+        """Simulate Heston price paths via the Andersen (2008) QE scheme.
 
         Args:
             n_paths: Number of simulation paths.
@@ -60,26 +60,41 @@ class HestonEngine(SimulationEngine):
         S[:, 0] = S0
         V[:, 0] = v0
 
-        # Cholesky for correlated normals
-        cov = np.array([[1.0, rho], [rho, 1.0]])
-        L = np.linalg.cholesky(cov)
-        sqrt_dt = np.sqrt(dt)
-
         # QE constants
         exp_kappa = np.exp(-kappa * dt)
         c2 = sigma_v**2 * exp_kappa * (1 - exp_kappa) / kappa
-        c1 = theta * (1 - exp_kappa) ** 2
+        # Var[V(t+dt) | V(t)] = V(t) * c2 + c1  (Andersen 2008, eq. 17)
+        c1 = theta * sigma_v**2 * (1 - exp_kappa) ** 2 / (2 * kappa)
+
+        # Log-price discretisation constants (Andersen 2008, eq. 33) with
+        # central weighting gamma1 = gamma2 = 0.5. The price/variance
+        # correlation enters through K0..K2, which tie the log-price step
+        # to the *realised* variance move V(t) -> V(t+dt), so rho is honoured
+        # without needing a second correlated normal.
+        g1 = g2 = 0.5
+        if sigma_v > 1e-8:
+            k0 = -rho * kappa * theta / sigma_v * dt
+            k1 = g1 * dt * (kappa * rho / sigma_v - 0.5) - rho / sigma_v
+            k2 = g2 * dt * (kappa * rho / sigma_v - 0.5) + rho / sigma_v
+        else:  # deterministic variance: nothing to correlate with
+            k0, k1, k2 = 0.0, -0.5 * g1 * dt, -0.5 * g2 * dt
+        k3 = g1 * dt * (1.0 - rho**2) if sigma_v > 1e-8 else g1 * dt
+        k4 = g2 * dt * (1.0 - rho**2) if sigma_v > 1e-8 else g2 * dt
 
         for t in range(n_steps):
             # Conditional mean and variance of V(t+dt) | V(t)
             m = theta + (V[:, t] - theta) * exp_kappa
             s2 = V[:, t] * c2 + c1
-            psi = s2 / (m**2)
+            m2 = m**2
+            psi = np.divide(s2, m2, out=np.zeros_like(s2), where=m2 > 1e-32)
 
             # QE sampling of V(t+dt)
             V_next = np.empty(n_paths)
+            # (Near-)deterministic variance, e.g. sigma_v = 0: take the mean
+            mask_det = psi < 1e-12
+            V_next[mask_det] = m[mask_det]
             # Low dispersion regime: moment-matched normal
-            mask_low = psi <= 1.5
+            mask_low = (psi <= 1.5) & ~mask_det
             if np.any(mask_low):
                 b2 = (
                     2 / psi[mask_low]
@@ -91,7 +106,7 @@ class HestonEngine(SimulationEngine):
                 V_next[mask_low] = a * (np.sqrt(b2) + Z_v) ** 2
 
             # High dispersion regime: exponential
-            mask_high = ~mask_low
+            mask_high = ~(mask_low | mask_det)
             if np.any(mask_high):
                 p = (psi[mask_high] - 1) / (psi[mask_high] + 1)
                 beta = 2 / (m[mask_high] * (1 + psi[mask_high]))
@@ -104,13 +119,11 @@ class HestonEngine(SimulationEngine):
 
             V[:, t + 1] = np.maximum(V_next, 0.0)
 
-            # Asset price step (log-Euler)
-            Z2 = rng.standard_normal((n_paths, 2))
-            corr = Z2 @ L.T
-            v_pos = np.maximum(V[:, t], 0.0)
-            S[:, t + 1] = S[:, t] * np.exp(
-                (mu - 0.5 * v_pos) * dt + np.sqrt(v_pos) * sqrt_dt * corr[:, 0]
-            )
+            # Asset price step (Andersen QE log-price scheme)
+            v_t, v_n = V[:, t], V[:, t + 1]
+            Z_s = rng.standard_normal(n_paths)
+            log_step = mu * dt + k0 + k1 * v_t + k2 * v_n + np.sqrt(k3 * v_t + k4 * v_n) * Z_s
+            S[:, t + 1] = S[:, t] * np.exp(log_step)
 
         logger.debug(f"HestonEngine QE simulated {n_paths} paths x {n_steps} steps")
         return S

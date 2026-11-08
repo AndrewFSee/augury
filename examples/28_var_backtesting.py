@@ -28,12 +28,14 @@ Use case:
 """
 
 import time
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from scipy.stats import norm, t as t_dist, chi2, binom
 from arch import arch_model
 from arch.univariate.distribution import SkewStudent
+from scipy.stats import binom, chi2, norm
+from scipy.stats import t as t_dist
 
 # ── Configuration ────────────────────────────────────────────────────
 TICKER = "SPY"
@@ -172,12 +174,12 @@ for ri, t_start in enumerate(refit_points):
                         dist="normal", mean="Constant")
         res = am.fit(disp="off", show_warning=False)
         cv = np.asarray(res.conditional_volatility)
-        gp["GARCH-Normal"] = dict(
-            omega=res.params["omega"], alpha=res.params["alpha[1]"],
-            gamma=res.params.get("gamma[1]", 0), beta=res.params["beta[1]"],
-            mu=res.params["mu"],
-            h=cv[-1] ** 2,
-        )
+        gp["GARCH-Normal"] = {
+            "omega": res.params["omega"], "alpha": res.params["alpha[1]"],
+            "gamma": res.params.get("gamma[1]", 0), "beta": res.params["beta[1]"],
+            "mu": res.params["mu"],
+            "h": cv[-1] ** 2,
+        }
     except Exception:
         pass
 
@@ -187,13 +189,13 @@ for ri, t_start in enumerate(refit_points):
                         dist="skewt", mean="Constant")
         res = am.fit(disp="off", show_warning=False)
         cv = np.asarray(res.conditional_volatility)
-        gp["GJR-skewt"] = dict(
-            omega=res.params["omega"], alpha=res.params["alpha[1]"],
-            gamma=res.params.get("gamma[1]", 0), beta=res.params["beta[1]"],
-            mu=res.params["mu"],
-            h=cv[-1] ** 2,
-            eta=res.params["eta"], lam=res.params["lambda"],
-        )
+        gp["GJR-skewt"] = {
+            "omega": res.params["omega"], "alpha": res.params["alpha[1]"],
+            "gamma": res.params.get("gamma[1]", 0), "beta": res.params["beta[1]"],
+            "mu": res.params["mu"],
+            "h": cv[-1] ** 2,
+            "eta": res.params["eta"], "lam": res.params["lambda"],
+        }
         gp["GJR-VIX"] = dict(gp["GJR-skewt"])
     except Exception:
         pass
@@ -430,5 +432,5 @@ log(f"  Total runtime: {total:.0f}s")
 
 with open("_var_backtest_output.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(output_lines))
-log(f"  Output saved to _var_backtest_output.txt")
+log("  Output saved to _var_backtest_output.txt")
 log("=" * 80)

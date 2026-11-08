@@ -259,6 +259,7 @@ class HARRV:
             rv = r**2
             bpv = self.bipower_variation(r) if self.variant in ("jump", "cj") else None
         else:
+            assert self._rv_series is not None
             rv = self._rv_series
             bpv = self._bpv_series
 

@@ -109,13 +109,13 @@ def main() -> None:
     rps = RiskParitySizer()
     daily_ret_matrix = np.log(prices / prices.shift(1)).dropna().values
     rp_weights = rps.compute_weights(daily_ret_matrix, target_vol=0.10)
-    logger.info(f"Risk-parity weights: {dict(zip(assets, rp_weights.round(4)))}")
+    logger.info(f"Risk-parity weights: {dict(zip(assets, rp_weights.round(4), strict=False))}")
 
     # ── 7. Portfolio Optimization ─────────────────────────────────────────────
     allocator = RiskParityAllocator()
     cov = np.cov(daily_ret_matrix.T) * 252
     erc_weights = allocator.allocate(cov)
-    logger.info(f"ERC weights: {dict(zip(assets, erc_weights.round(4)))}")
+    logger.info(f"ERC weights: {dict(zip(assets, erc_weights.round(4), strict=False))}")
 
     # ── 8. Regime Signals ─────────────────────────────────────────────────────
     signal_gen = RegimeSignalGenerator(regime_signal_map={0: 1, 1: 0})

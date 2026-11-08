@@ -67,11 +67,9 @@ class EnsembleRegimeDetector:
             # Align labels to the first detector before voting
             aligned = self._align_labels(all_labels)
             stacked = np.stack(aligned, axis=1)
-            labels = np.apply_along_axis(
-                lambda row: np.bincount(row, minlength=self.n_regimes).argmax(),
-                axis=1,
-                arr=stacked,
-            )
+            # Majority vote per row (ties -> lowest label, as bincount.argmax did)
+            votes = np.stack([(stacked == k).sum(axis=1) for k in range(self.n_regimes)], axis=1)
+            labels = np.argmax(votes, axis=1)
         else:
             avg_proba = self.predict_proba(features)
             labels = np.argmax(avg_proba, axis=1)

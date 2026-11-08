@@ -122,12 +122,16 @@ class GARCHModel:
         horizon: int,
         random_state: int | None = None,
     ) -> np.ndarray:
-        """Simulate return paths from the fitted model.
+        """Simulate forward return paths conditioned on the current state.
+
+        Paths start from the conditional variance at the end of the fitted
+        sample (i.e. *today's* volatility), not from the unconditional
+        level, and use the fitted innovation distribution (e.g. skew-t).
 
         Args:
             n_paths: Number of simulation paths.
             horizon: Number of time steps per path.
-            random_state: Random seed.
+            random_state: Random seed (int or Generator) for reproducibility.
 
         Returns:
             Array of shape (n_paths, horizon) with simulated log returns.
@@ -136,13 +140,18 @@ class GARCHModel:
             RuntimeError: If model has not been fitted.
         """
         self._check_fitted()
-        paths = np.empty((n_paths, horizon), dtype=float)
-        for i in range(n_paths):
-            sim = self._result.model.simulate(
-                self._result.params,
-                nobs=horizon,
-            )
-            paths[i] = sim["data"].values / self._scale
+        dist = self._result.model.distribution
+        n_dist = dist.num_params
+        dist_params = np.asarray(self._result.params)[-n_dist:] if n_dist else np.empty(0)
+        seeded = type(dist)(seed=np.random.default_rng(random_state))
+        fc = self._result.forecast(
+            horizon=horizon,
+            method="simulation",
+            simulations=n_paths,
+            rng=seeded.simulate(dist_params),
+            reindex=False,
+        )
+        paths = np.asarray(fc.simulations.values[-1], dtype=float) / self._scale
         logger.debug(f"Simulated {n_paths} GARCH paths of length {horizon}")
         return paths
 

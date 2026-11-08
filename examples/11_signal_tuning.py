@@ -15,7 +15,6 @@ Phases 4-6 reuse pre-computed snapshots (fast).
 Phase 7 downloads extra tickers (moderate).
 """
 
-import sys
 import time
 
 import numpy as np
@@ -25,7 +24,7 @@ from synthquant.strategy.signal_tuner import SignalTuner
 
 # ── Log to file and stdout simultaneously ─────────────────────────────────────
 _LOG_PATH = "_tuning_output.txt"
-_logfile = open(_LOG_PATH, "w", encoding="utf-8")
+_logfile = open(_LOG_PATH, "w", encoding="utf-8")  # noqa: SIM115 - kept open for script lifetime
 _orig_print = print
 
 
@@ -157,7 +156,7 @@ print(fmt.format("Test  (default)", default_test["sharpe"], default_test["hit_ra
 # ── Phase 3: Baseline tune (all 9 params, no regularisation) ─────────────────
 
 print(f"\n{'-' * 78}")
-print(f"  Phase 3: Baseline tuning (all 9 params, no regularisation)")
+print("  Phase 3: Baseline tuning (all 9 params, no regularisation)")
 print(f"{'-' * 78}")
 
 t1 = time.time()

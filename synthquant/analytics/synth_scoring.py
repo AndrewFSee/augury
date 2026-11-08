@@ -144,8 +144,7 @@ class SynthScorer:
             crps_by_scale[name] = float(np.mean(crps_arr))
 
         # Composite: weighted average across scales
-        weights = self.scale_weights or [1.0] * len(self.scales_minutes)
-        weights = np.array(weights, dtype=float)
+        weights = np.array(self.scale_weights or [1.0] * len(self.scales_minutes), dtype=float)
         weights /= weights.sum()
 
         scale_values = [crps_by_scale.get(self._scale_name(s), 0.0) for s in self.scales_minutes]

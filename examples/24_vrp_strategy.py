@@ -39,7 +39,6 @@ import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
-import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -92,9 +91,7 @@ class StratMetrics:
     def finalize(self, periods_per_year: float = 252 / HORIZON) -> dict[str, float]:
         pnl = self.pnl
         if len(pnl) == 0:
-            return {k: 0.0 for k in [
-                "sharpe", "sortino", "calmar", "max_dd", "cvar95",
-                "total_return", "turnover", "cost_adj_sharpe", "avg_expo"]}
+            return dict.fromkeys(["sharpe", "sortino", "calmar", "max_dd", "cvar95", "total_return", "turnover", "cost_adj_sharpe", "avg_expo"], 0.0)
         mu, sig = pnl.mean(), pnl.std()
         sharpe = mu / sig * np.sqrt(periods_per_year) if sig > 0 else 0.0
 
@@ -188,7 +185,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     strats = {name: StratMetrics(name) for name in [
         "bh", "vol_target", "vrp_trailing", "vrp_forecast"]}
-    prev_expo = {k: 0.0 for k in strats}
+    prev_expo = dict.fromkeys(strats, 0.0)
 
     # Diagnostics
     diag = {
@@ -304,7 +301,6 @@ def main() -> int:
     vrp_f_arr = np.array(diag["vrp_forecast"])
     fv_arr = np.array(diag["forecast_vol"])
     tv_arr = np.array(diag["trailing_vol"])
-    vix_arr = np.array(diag["vix"])
     fwd_ret = np.array(diag["fwd_return"])
     fwd_vol = np.array(diag["fwd_vol"])
 
@@ -312,7 +308,7 @@ def main() -> int:
     print("  VRP SIGNAL DIAGNOSTICS")
     print(f"{'=' * 80}")
 
-    print(f"\n  VRP Statistics:")
+    print("\n  VRP Statistics:")
     print(f"  {'':>25} {'Trailing':>12} {'Forecast':>12}")
     print(f"  {'Mean VRP':>25} {vrp_t_arr.mean():>12.4f} {vrp_f_arr.mean():>12.4f}")
     print(f"  {'Std VRP':>25} {vrp_t_arr.std():>12.4f} {vrp_f_arr.std():>12.4f}")
@@ -327,14 +323,14 @@ def main() -> int:
 
     rho_t_ret, p_t_ret = spearmanr(vrp_t_arr, fwd_ret)
     rho_f_ret, p_f_ret = spearmanr(vrp_f_arr, fwd_ret)
-    print(f"\n  VRP → Forward Return (Spearman):")
+    print("\n  VRP → Forward Return (Spearman):")
     print(f"  {'Trailing VRP vs fwd ret':>30}: rho={rho_t_ret:+.3f} (p={p_t_ret:.3f})")
     print(f"  {'Forecast VRP vs fwd ret':>30}: rho={rho_f_ret:+.3f} (p={p_f_ret:.3f})")
 
     # Does VRP predict forward vol?
     rho_t_vol, p_t_vol = spearmanr(vrp_t_arr, fwd_vol)
     rho_f_vol, p_f_vol = spearmanr(vrp_f_arr, fwd_vol)
-    print(f"\n  VRP → Forward Vol (Spearman):")
+    print("\n  VRP → Forward Vol (Spearman):")
     print(f"  {'Trailing VRP vs fwd vol':>30}: rho={rho_t_vol:+.3f} (p={p_t_vol:.3f})")
     print(f"  {'Forecast VRP vs fwd vol':>30}: rho={rho_f_vol:+.3f} (p={p_f_vol:.3f})")
 
@@ -343,7 +339,7 @@ def main() -> int:
     rho_tv, _ = spearmanr(tv_arr, fwd_vol)
     mae_fv = np.mean(np.abs(fv_arr - fwd_vol))
     mae_tv = np.mean(np.abs(tv_arr - fwd_vol))
-    print(f"\n  Vol Forecast Accuracy (vs forward realized vol):")
+    print("\n  Vol Forecast Accuracy (vs forward realized vol):")
     print(f"  {'':>25} {'Forecast':>12} {'Trailing':>12}")
     print(f"  {'Spearman rho':>25} {rho_fv:>+12.3f} {rho_tv:>+12.3f}")
     print(f"  {'MAE':>25} {mae_fv:>12.4f} {mae_tv:>12.4f}")
@@ -362,16 +358,13 @@ def main() -> int:
     labels = ["Q1 (low)", "Q2", "Q3", "Q4", "Q5 (high)"]
     thresholds = np.quantile(vrp, quantiles)
 
-    print(f"\n  Forward 21-day return by forecast VRP quintile:")
+    print("\n  Forward 21-day return by forecast VRP quintile:")
     print(f"  {'Quintile':<12} {'VRP range':>18} {'N':>5} "
           f"{'Avg Ret':>10} {'Hit Rate':>10} {'Avg Vol':>10}")
 
     for i, label in enumerate(labels):
         lo, hi = thresholds[i], thresholds[i + 1]
-        if i == len(labels) - 1:
-            mask = (vrp >= lo) & (vrp <= hi)
-        else:
-            mask = (vrp >= lo) & (vrp < hi)
+        mask = (vrp >= lo) & (vrp <= hi) if i == len(labels) - 1 else (vrp >= lo) & (vrp < hi)
         n = mask.sum()
         if n == 0:
             continue

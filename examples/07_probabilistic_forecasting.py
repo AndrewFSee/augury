@@ -64,7 +64,7 @@ def main() -> None:
     proba_str = ", ".join(f"{p:.1%}" for p in s["regime_probabilities"])
     print(f"Regime probabilities:     [{proba_str}]")
 
-    print(f"\n--- 63-Day Forecast Distribution (10,000 paths) ---")
+    print("\n--- 63-Day Forecast Distribution (10,000 paths) ---")
     print(f"  Expected return:        {s['expected_return']:+.2%}")
     print(f"  Median return:          {s['median_return']:+.2%}")
     print(f"  Return std dev:         {s['return_std']:.2%}")
@@ -72,14 +72,14 @@ def main() -> None:
     print(f"  P(loss > 10%):          {s['prob_loss_gt_10pct']:.1%}")
     print(f"  P(loss > 20%):          {s['prob_loss_gt_20pct']:.1%}")
 
-    print(f"\n--- Risk Metrics ---")
+    print("\n--- Risk Metrics ---")
     print(f"  VaR 95%:                {s['var_95']:+.2%}")
     print(f"  CVaR 95%:               {s['cvar_95']:+.2%}")
     print(f"  VaR 99%:                {s['var_99']:+.2%}")
     print(f"  CVaR 99%:               {s['cvar_99']:+.2%}")
     print(f"  Median max drawdown:    {s['median_max_drawdown']:+.2%}")
 
-    print(f"\n--- Price Fan (at S0 = $100) ---")
+    print("\n--- Price Fan (at S0 = $100) ---")
     print(f"  1st percentile:         ${s['price_p5']:.2f}")
     print(f"  25th percentile:        ${s['price_p25']:.2f}")
     print(f"  Median:                 ${s['price_p50']:.2f}")
@@ -106,7 +106,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 5. Walk-forward calibration test
     # ------------------------------------------------------------------
-    print(f"\n--- Walk-Forward Calibration (21-day windows) ---")
+    print("\n--- Walk-Forward Calibration (21-day windows) ---")
     window = 500
     step = 21
     in_90 = 0
@@ -144,7 +144,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 6. Compare detectors
     # ------------------------------------------------------------------
-    print(f"\n--- Detector Comparison (63-day forecast) ---")
+    print("\n--- Detector Comparison (63-day forecast) ---")
     for det_name in ("hmm", "ms_garch", "ensemble"):
         fc_d = ProbabilisticForecaster(
             detector=det_name, n_regimes=2, n_paths=5_000,

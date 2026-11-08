@@ -26,7 +26,6 @@ producing a forecast distribution that better captures tail risk.
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -281,7 +280,7 @@ if results_db:
     mkt_crps_all = np.mean([r["mkt_crps"] for r in results_db])
     crps_wins = sum(1 for r in results_db if r["mkt_crps"] < r["hmm_crps"])
 
-    print(f"\n  CRPS (lower = better forecast):")
+    print("\n  CRPS (lower = better forecast):")
     print(f"    HMM-only:   {hmm_crps_all:.5f}")
     print(f"    Mkt-Adj:    {mkt_crps_all:.5f}")
     print(f"    Mkt wins:   {crps_wins}/{len(results_db)}")
@@ -292,7 +291,7 @@ if results_db:
     hmm_cov90_err = abs(hmm_cov90 - 0.90)
     mkt_cov90_err = abs(mkt_cov90 - 0.90)
 
-    print(f"\n  90% Coverage (target = 90%):")
+    print("\n  90% Coverage (target = 90%):")
     print(f"    HMM-only:   {hmm_cov90:.1%}  (error={hmm_cov90_err:.1%})")
     print(f"    Mkt-Adj:    {mkt_cov90:.1%}  (error={mkt_cov90_err:.1%})")
     cov_better = "Mkt-Adj" if mkt_cov90_err < hmm_cov90_err else "HMM-only"
@@ -304,7 +303,7 @@ if results_db:
     hmm_var_err = abs(hmm_var - 0.05)
     mkt_var_err = abs(mkt_var - 0.05)
 
-    print(f"\n  VaR 95% breach rate (target = 5%):")
+    print("\n  VaR 95% breach rate (target = 5%):")
     print(f"    HMM-only:   {hmm_var:.1%}  (error={hmm_var_err:.1%})")
     print(f"    Mkt-Adj:    {mkt_var:.1%}  (error={mkt_var_err:.1%})")
     var_better = "Mkt-Adj" if mkt_var_err < hmm_var_err else "HMM-only"
@@ -315,7 +314,7 @@ if results_db:
     mkt_mae_all = np.mean([r["mkt_mae"] for r in results_db])
     mae_wins = sum(1 for r in results_db if r["mkt_mae"] < r["hmm_mae"])
 
-    print(f"\n  Forecast MAE (lower = better):")
+    print("\n  Forecast MAE (lower = better):")
     print(f"    HMM-only:   {hmm_mae_all:.5f}")
     print(f"    Mkt-Adj:    {mkt_mae_all:.5f}")
     print(f"    Mkt wins:   {mae_wins}/{len(results_db)}")
@@ -324,12 +323,12 @@ if results_db:
     hmm_cp = np.mean([r["hmm_crisis_p"] for r in results_db])
     mkt_cp = np.mean([r["mkt_crisis_p"] for r in results_db])
 
-    print(f"\n  Avg P(crisis):")
+    print("\n  Avg P(crisis):")
     print(f"    HMM-only:   {hmm_cp:.3f}")
     print(f"    Mkt-Adj:    {mkt_cp:.3f}")
 
     # Per-period analysis
-    print(f"\n  --- Per-Period CRPS Wins ---")
+    print("\n  --- Per-Period CRPS Wins ---")
     for period_name, _, _ in PERIODS:
         subset = [r for r in results_db if r["period"] == period_name]
         if subset:

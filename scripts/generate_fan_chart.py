@@ -6,12 +6,13 @@ Fits the EnsembleForecaster on SPY daily returns and produces a
 Saves a dark-themed fan chart PNG to docs/fan_chart.png.
 """
 
-import numpy as np
-import yfinance as yf
+from datetime import timedelta
+
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import matplotlib.dates as mdates
-from datetime import datetime, timedelta
+import numpy as np
+import yfinance as yf
 
 from synthquant.ensemble_forecast import EnsembleForecaster
 

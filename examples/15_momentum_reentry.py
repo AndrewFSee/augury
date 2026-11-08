@@ -15,7 +15,6 @@ and ramps exposure back up before the HMM switches back to calm.
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -57,7 +56,7 @@ print("  MOMENTUM RE-ENTRY COMPARISON")
 print(f"  Tickers: {', '.join(TICKERS)}")
 print(f"  Periods: {', '.join(p[0] for p in PERIODS)}")
 print(f"  Lookback={LOOKBACK} | Horizon={HORIZON} | Step={STEP} | Paths={N_PATHS}")
-print(f"  Reentry: lookback=20, scale=0.04 (4% trailing = full re-entry)")
+print("  Reentry: lookback=20, scale=0.04 (4% trailing = full re-entry)")
 print("=" * 80)
 print()
 
@@ -216,7 +215,7 @@ for ticker in TICKERS:
         elapsed = time.perf_counter() - t0
         bh_pnl = bh["pnl"]
 
-        def cap(x: dict) -> float:
+        def cap(x: dict, bh_pnl: float = bh_pnl) -> float:
             return x["pnl"] / bh_pnl if abs(bh_pnl) > 1e-8 else 0.0
 
         print(
@@ -308,7 +307,7 @@ if results_db:
         caps = [r[f"{prefix}_cap"] for r in results_db]
         dds = [r[f"{prefix}_dd"] for r in results_db]
         bh_sharpes = [r["bh_sharpe"] for r in results_db]
-        beats = sum(1 for s, b in zip(sharpes, bh_sharpes) if s >= b)
+        beats = sum(1 for s, b in zip(sharpes, bh_sharpes, strict=False) if s >= b)
 
         print(f"  {label}:")
         print(f"    Avg Sharpe:  {np.mean(sharpes):+.2f}  (B&H: {np.mean(bh_sharpes):+.2f})")

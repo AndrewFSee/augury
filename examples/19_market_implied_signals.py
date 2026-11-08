@@ -17,7 +17,6 @@ looking) information that OHLCV signals cannot capture.
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -61,8 +60,8 @@ print()
 from synthquant.data.ingest import DataIngestor
 from synthquant.data.market_data import MarketDataFetcher
 from synthquant.ensemble_forecast import EnsembleForecaster
-from synthquant.strategy.regime_allocator import RegimeAllocator
 from synthquant.strategy.predictive_allocator import PredictiveAllocator
+from synthquant.strategy.regime_allocator import RegimeAllocator
 
 ingestor = DataIngestor()
 
@@ -299,7 +298,7 @@ for ticker in TICKERS:
         elapsed = time.perf_counter() - t0
         bh_pnl = bh["pnl"]
 
-        def cap(x):
+        def cap(x, bh_pnl=bh_pnl):
             return x["pnl"] / bh_pnl if abs(bh_pnl) > 1e-8 else 0.0
 
         print(f"    B&H:       Sharpe={bh['sharpe']:+.2f}  PnL={bh['pnl']:+.1%}  DD={bh['max_dd']:+.1%}")

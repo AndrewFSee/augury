@@ -2,10 +2,13 @@
 
 Shows the composite signal for each ticker using EnsembleForecaster.
 """
-import contextlib, io, sys, warnings
+import contextlib
+import io
+import warnings
+
 import numpy as np
 import yfinance as yf
-from scipy.stats import skew, kurtosis
+from scipy.stats import kurtosis, skew
 
 from synthquant.ensemble_forecast import EnsembleForecaster
 from synthquant.strategy.forecast_signals import ForecastSignal
@@ -53,7 +56,7 @@ for symbol in tickers:
     sig_s = signal_gen_short.generate(forecast, recent_returns=returns[-63:])
 
     signal_label = {1: "LONG", 0: "FLAT", -1: "SHORT"}
-    print(f"\n  Forecast:")
+    print("\n  Forecast:")
     print(f"    E[return]:     {forecast.expected_return:+.2%}")
     print(f"    VaR 95%:       {forecast.var_95:+.2%}")
     print(f"    CVaR 95%:      {forecast.cvar_95:+.2%}")
@@ -66,10 +69,10 @@ for symbol in tickers:
         w = forecast.metadata["engine_weights"]
         print(f"    Engine wts:    H={w['heston']:.0%} M={w['merton_jd']:.0%} R={w['regime_switching']:.0%}")
 
-    print(f"\n  Signal (long-only):")
+    print("\n  Signal (long-only):")
     print(f"    Direction:     {signal_label[sig.signal]}")
     print(f"    Conviction:    {sig.conviction:.2f}")
-    print(f"    Components:")
+    print("    Components:")
     for name, val in sig.components.items():
         bar_len = int(abs(val) * 20)
         bar = ("+" if val >= 0 else "-") * bar_len

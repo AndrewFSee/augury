@@ -9,7 +9,6 @@ For each (ticker, period) cell we run walk-forward forecasts and
 evaluate with default weights.  Results are printed as a matrix.
 """
 
-import sys
 import time
 
 import numpy as np
@@ -20,7 +19,7 @@ from synthquant.strategy.signal_tuner import SignalTuner
 # ── Log to file + stdout ──────────────────────────────────────────────────────
 
 _LOG_PATH = "_robustness_output.txt"
-_logfile = open(_LOG_PATH, "w", encoding="utf-8")
+_logfile = open(_LOG_PATH, "w", encoding="utf-8")  # noqa: SIM115 - kept open for script lifetime
 _orig_print = print
 
 
@@ -149,7 +148,7 @@ def main():
             print(row)
 
     # Signal as % of B&H
-    print(f"\n  Signal / B&H  (how much of buy-and-hold the signal captures):")
+    print("\n  Signal / B&H  (how much of buy-and-hold the signal captures):")
     print(header)
     print(sep)
     capture_ratios = []
@@ -192,7 +191,7 @@ def main():
             print(row)
 
     # Signal Sharpe minus B&H Sharpe
-    print(f"\n  Signal - B&H  (positive = signal risk-adjusted better):")
+    print("\n  Signal - B&H  (positive = signal risk-adjusted better):")
     print(header)
     print(sep)
     sharpe_deltas = []

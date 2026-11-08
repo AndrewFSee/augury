@@ -33,6 +33,12 @@ from synthquant.models.garch import GARCHModel
 from synthquant.regime.ensemble import EnsembleRegimeDetector
 from synthquant.regime.hmm import HMMRegimeDetector
 from synthquant.regime.ms_garch import MarkovSwitchingGARCH
+from synthquant.simulation.drift import (
+    gbm_drift,
+    heston_drift,
+    merton_drift,
+    rough_bergomi_drift,
+)
 from synthquant.simulation.engines.heston import HestonEngine
 from synthquant.simulation.engines.merton_jd import MertonJDEngine
 from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
@@ -44,6 +50,9 @@ __all__ = ["EnsembleForecaster", "CalibratedRegimeParams", "CalibrationBounds"]
 
 DetectorType = Literal["hmm", "ms_garch", "ensemble"]
 
+# Fixed order so seeds map to engines deterministically.
+_ENGINE_ORDER = ("heston", "merton_jd", "regime_switching", "rough_bergomi")
+
 
 @dataclass
 class CalibrationBounds:
@@ -52,7 +61,10 @@ class CalibrationBounds:
     heston_rho: tuple[float, float] = (-0.95, -0.2)
     heston_kappa: tuple[float, float] = (0.5, 15.0)
     heston_sigma_v: tuple[float, float] = (0.25, 1.5)
-    garch_scale_clamp: tuple[float, float] = (0.5, 2.0)
+    # Sanity clamp on sqrt(GARCH horizon variance / model horizon variance).
+    # The ratio is regime-relative, so it is ~1 unless GARCH sees vol the
+    # regime model does not; the clamp only guards against degenerate fits.
+    garch_scale_clamp: tuple[float, float] = (0.25, 4.0)
     jump_lambda: tuple[float, float] = (0.5, 50.0)
     jump_mu: tuple[float, float] = (-0.10, 0.02)
     jump_sigma_floor_mult: float = 1.5
@@ -158,6 +170,8 @@ class EnsembleForecaster:
         self._fitted = False
         self._returns: np.ndarray | None = None
         self._obs: np.ndarray | None = None  # features or returns for detector
+        # Set by optimize_engine_weights(); overrides the regime heuristic.
+        self._optimal_weights: dict[str, float] | None = None
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -259,13 +273,7 @@ class EnsembleForecaster:
         """
         self._check_fitted()
 
-        # Current regime state (use features if available)
-        obs = self._obs if self._obs is not None else self._returns
-        if self.use_filtered and hasattr(self._detector, "predict_proba_filtered"):
-            proba = self._detector.predict_proba_filtered(obs)
-        else:
-            proba = self._detector.predict_proba(obs)
-        current_proba = proba[-1]
+        current_proba = self._current_proba()
 
         # Bayesian adjustment using market-implied data
         hmm_proba = current_proba.copy()
@@ -275,124 +283,28 @@ class EnsembleForecaster:
             adjuster = MarketRegimeAdjuster(strength=market_adjust_strength)
             current_proba = adjuster.adjust(current_proba, market_data)
 
-        current_regime = int(np.argmax(current_proba))
+        cond = self._conditioning(current_proba, horizon, dt)
+        current_regime = cond["regime"]
 
-        # GARCH conditioning: differentiated per engine
-        garch_scale = self._garch_scale()
-        garch_v0 = self._garch_current_annual_variance()
-
-        # Compute regime-conditional engine weights
         weights = self._compute_engine_weights(current_proba, current_regime)
-
-        if self.use_rough_bergomi:
-            # Allocate ~12% to Rough Bergomi, scale others down proportionally
-            rb_frac = 0.12
-            scale = 1.0 - rb_frac
-            n_heston = max(int(weights["heston"] * scale * self.n_paths), 50)
-            n_merton = max(int(weights["merton_jd"] * scale * self.n_paths), 50)
-            n_rb = max(int(rb_frac * self.n_paths), 50)
-            n_regime = self.n_paths - n_heston - n_merton - n_rb
-        else:
-            n_heston = max(int(weights["heston"] * self.n_paths), 100)
-            n_merton = max(int(weights["merton_jd"] * self.n_paths), 100)
-            n_rb = 0
-            n_regime = self.n_paths - n_heston - n_merton
+        if self.use_rough_bergomi and "rough_bergomi" not in weights:
+            # Heuristic weights: carve out a fixed 12% for Rough Bergomi
+            weights = {k: v * 0.88 for k, v in weights.items()}
+            weights["rough_bergomi"] = 0.12
+        alloc = self._allocate_paths(weights, self.n_paths)
 
         rng = np.random.default_rng(self.random_state)
-        seeds = rng.integers(0, 2**31, size=4)
-
-        # --- Engine 1: Heston ---
-        # v0 from GARCH current forecast (best estimate of current vol state)
-        # theta from regime calibration (long-run target, NOT scaled)
-        # This preserves mean-reversion structure rather than scaling uniformly
-        rp = self._calibrated[current_regime]
-        h = rp.heston
-        heston_v0 = garch_v0 if garch_v0 is not None else h["v0"]
-        heston_paths = HestonEngine().simulate(
-            n_paths=n_heston,
-            n_steps=horizon,
-            dt=dt,
-            S0=current_price,
-            v0=heston_v0,
-            mu=rp.mu * 252,
-            kappa=h["kappa"],
-            theta=h["theta"],
-            sigma_v=h["sigma_v"],
-            rho=h["rho"],
-            random_state=int(seeds[0]),
-        )
-
-        # --- Engine 2: Merton Jump-Diffusion ---
-        # The regime sigma includes ALL return variation (diffusion + jumps).
-        # The Merton JD engine adds jump variance (lambda_j*(mu_j^2+sigma_j^2))
-        # on top of sigma^2, so we subtract the expected jump variance to get
-        # the diffusion-only sigma and avoid double-counting.
-        j = rp.jumps
-        total_ann_var = (rp.sigma * np.sqrt(252)) ** 2
-        jump_var = j["lambda_j"] * (j["mu_j"] ** 2 + j["sigma_j"] ** 2)
-        diffusion_var = max(total_ann_var - jump_var, total_ann_var * 0.25)
-        merton_sigma = np.sqrt(diffusion_var)
-        merton_paths = MertonJDEngine().simulate(
-            n_paths=n_merton,
-            n_steps=horizon,
-            dt=dt,
-            S0=current_price,
-            mu=rp.mu * 252,
-            sigma=merton_sigma,
-            lambda_j=j["lambda_j"],
-            mu_j=j["mu_j"],
-            sigma_j=j["sigma_j"],
-            random_state=int(seeds[1]),
-        )
-
-        # --- Engine 3: Regime-Switching GBM ---
-        # No garch_scale: regime-switching dynamics handle vol adaptation,
-        # and constant-sigma engines can't mean-revert like Heston.
-        ann_params = []
-        for i in range(self.n_regimes):
-            cp = self._calibrated[i]
-            ann_params.append(
-                {
-                    "mu": cp.mu * 252,
-                    "sigma": cp.sigma * np.sqrt(252),
-                }
-            )
-        assert self._transition_matrix is not None, "fit() must be called before forecast()"
-        regime_paths = RegimeSwitchingEngine(
-            regime_params=ann_params,
-            transition_matrix=self._transition_matrix,
-            initial_regime=current_regime,
-        ).simulate(
-            n_paths=n_regime,
-            n_steps=horizon,
-            dt=dt,
-            S0=current_price,
-            random_state=int(seeds[2]),
-        )
-
-        # --- Engine 4: Rough Bergomi (optional) ---
-        if self.use_rough_bergomi and n_rb > 0:
-            rb = rp.rough_bergomi
-            rb_paths = RoughBergomiEngine().simulate(
-                n_paths=n_rb,
-                n_steps=horizon,
-                dt=dt,
-                S0=current_price,
-                H=rb.get("H", 0.1),
-                xi=rb.get("xi", 0.04),
-                eta=rb.get("eta", 1.9),
-                rho=rb.get("rho", -0.7),
-                mu=rp.mu * 252,
-                random_state=int(seeds[3]),
-            )
-        else:
-            rb_paths = np.empty((0, horizon + 1))
-
-        # --- Blend paths ---
-        all_engine_paths = [heston_paths, merton_paths, regime_paths]
-        if rb_paths.shape[0] > 0:
-            all_engine_paths.append(rb_paths)
+        seeds = rng.integers(0, 2**31, size=len(_ENGINE_ORDER))
+        all_engine_paths = [
+            self._simulate_engine(name, alloc[name], horizon, dt, current_price, cond, int(seed))
+            for name, seed in zip(_ENGINE_ORDER, seeds, strict=True)
+            if alloc.get(name, 0) > 0
+        ]
         paths = np.concatenate(all_engine_paths, axis=0)
+        n_heston = alloc.get("heston", 0)
+        n_merton = alloc.get("merton_jd", 0)
+        n_regime = alloc.get("regime_switching", 0)
+        n_rb = alloc.get("rough_bergomi", 0)
 
         # Shuffle so downstream analytics don't see systematic ordering
         rng2 = np.random.default_rng(self.random_state)
@@ -456,7 +368,9 @@ class EnsembleForecaster:
                 "n_regime": n_regime,
                 "n_rough_bergomi": n_rb,
                 "use_rough_bergomi": self.use_rough_bergomi,
-                "garch_scale": garch_scale,
+                "vol_scale_static": cond["static_scale"],
+                "vol_scale_regime": cond["rs_scale"],
+                "weights_source": "optimized" if self._optimal_weights else "regime_heuristic",
                 "dt": dt,
                 "hmm_proba": hmm_proba if market_data is not None else None,
                 "market_adjusted": market_data is not None,
@@ -760,7 +674,7 @@ class EnsembleForecaster:
         """
         n = len(regime_returns)
         if n < self.bounds.min_regime_obs:
-            return {"H": 0.1, "xi": regime_sigma**2, "eta": 1.9, "rho": -0.7}
+            return {"H": 0.1, "xi": regime_sigma**2 * 252, "eta": 1.9, "rho": -0.7}
 
         # Variogram method for Hurst exponent estimation
         # RV at scale q scales as q^(2H): log(RV_q) = 2H * log(q) + const
@@ -791,7 +705,7 @@ class EnsembleForecaster:
             H_est = 0.1
 
         # Map regime vol to Rough Bergomi parameters
-        xi = regime_sigma**2  # forward variance ~ realized variance
+        xi = regime_sigma**2 * 252  # annualised forward variance ~ realised variance
         eta = float(np.clip(1.0 / (H_est + 0.1), 1.0, 3.0))  # higher eta for rougher
 
         # Leverage: return-vs-|return| correlation as proxy
@@ -822,7 +736,14 @@ class EnsembleForecaster:
         This produces meaningful differentiation: in crisis, Merton JD
         dominates with jump dynamics; in calm, Heston dominates with
         stochastic vol.
+
+        If :meth:`optimize_engine_weights` has been run, its CRPS-optimal
+        weights are returned instead of the heuristic.
         """
+        if self._optimal_weights is not None:
+            total = sum(self._optimal_weights.values())
+            return {k: v / total for k, v in self._optimal_weights.items()}
+
         # Identify which regime is "crisis" (highest sigma)
         if self.n_regimes == 2:
             sigmas = [self._calibrated[i].sigma for i in range(self.n_regimes)]
@@ -857,180 +778,302 @@ class EnsembleForecaster:
         train_frac: float = 0.7,
         horizon: int = 21,
         current_price: float = 100.0,
-    ) -> dict[str, np.ndarray]:
-        """Find CRPS-optimal engine weights via walk-forward cross-validation.
+        n_eval_paths: int = 500,
+    ) -> dict[str, Any]:
+        """Find CRPS-optimal engine mixture weights via walk-forward folds.
 
-        Runs each engine separately on validation folds, then finds weights
-        that minimize composite CRPS using Nelder-Mead optimization.
+        For each fold the forecaster is fitted on the training slice and each
+        engine is simulated separately from the end of that slice, exactly as
+        :meth:`forecast` would. The weights minimise the CRPS of the *mixture*
+        distribution, which is quadratic in the weights::
+
+            CRPS(w) = sum_i w_i E|X_i - y| - 1/2 sum_ij w_i w_j E|X_i - X_j|
+
+        (a weighted average of per-engine CRPS would always pick a single
+        engine). The result is stored and used by :meth:`forecast` from then
+        on. Afterwards the forecaster is refitted on the full ``returns``.
+
+        Each fold contributes one terminal observation, so use as many folds
+        as the data allows: with only a handful the weights are noisy.
 
         Args:
             returns: Full return series for cross-validation.
             n_folds: Number of walk-forward folds.
             train_frac: Fraction of each fold used for training.
-            horizon: Forecast horizon per fold (in steps).
+            horizon: Forecast horizon per fold (in daily steps).
             current_price: Starting price for forecasts.
+            n_eval_paths: Paths simulated per engine per fold.
 
         Returns:
-            Dict with 'optimal_weights' (array), 'crps_by_fold' (array),
-            and 'engine_names' (list).
+            Dict with ``optimal_weights`` (array), ``engine_names`` (list),
+            ``crps_by_fold`` (per-engine CRPS, shape (folds_used, n_engines)),
+            ``mixture_crps`` (mean CRPS of the optimal mixture) and
+            ``n_folds_used``.
+
+        Raises:
+            ValueError: If no fold has enough training and validation data.
         """
         from scipy.optimize import minimize
 
         r = np.asarray(returns, dtype=float).ravel()
         n = len(r)
         fold_size = n // n_folds
+        dt = 1 / 252
 
-        engine_names = ["heston", "merton_jd", "regime_switching"]
-        if self.use_rough_bergomi:
-            engine_names.append("rough_bergomi")
-        n_engines = len(engine_names)
+        engine_names = [e for e in _ENGINE_ORDER if e != "rough_bergomi" or self.use_rough_bergomi]
+        k = len(engine_names)
 
-        fold_crps = np.zeros((n_folds, n_engines))
+        fold_a: list[np.ndarray] = []  # E|X_i - y|, shape (k,)
+        fold_b: list[np.ndarray] = []  # E|X_i - X_j|, shape (k, k)
 
         for fold in range(n_folds):
             start = fold * fold_size
             end = min(start + fold_size, n)
             train_end = start + int((end - start) * train_frac)
-
             if train_end - start < 60 or end - train_end < horizon:
                 continue
 
-            train_r = r[start:train_end]
-            val_r = r[train_end : train_end + horizon]
+            self.fit(r[start:train_end])
+            actual = float(np.sum(r[train_end : train_end + horizon]))
+            cond = self._conditioning(self._current_proba(), horizon, dt)
 
-            # Fit on training fold
-            self.fit(train_r)
-            actual_terminal = float(np.sum(val_r))
-
-            # Run each engine separately and compute CRPS
-            rp = self._calibrated[int(np.argmax(self._detector.predict_proba(self._obs)[-1]))]
-            dt = 1 / 252
-
-            rng = np.random.default_rng(self.random_state)
-            seeds = rng.integers(0, 2**31, size=4)
-
-            h = rp.heston
-            garch_v0 = self._garch_current_annual_variance()
-            hv0 = garch_v0 if garch_v0 is not None else h["v0"]
-
-            engines_paths = []
-            # Heston
-            engines_paths.append(
-                HestonEngine().simulate(
-                    n_paths=500,
-                    n_steps=horizon,
-                    dt=dt,
-                    S0=current_price,
-                    v0=hv0,
-                    mu=rp.mu * 252,
-                    kappa=h["kappa"],
-                    theta=h["theta"],
-                    sigma_v=h["sigma_v"],
-                    rho=h["rho"],
-                    random_state=int(seeds[0]),
+            seeds = np.random.default_rng(self.random_state).integers(0, 2**31, size=k)
+            samples = [
+                np.log(
+                    self._simulate_engine(
+                        name, n_eval_paths, horizon, dt, current_price, cond, int(seed)
+                    )[:, -1]
+                    / current_price
                 )
-            )
-            # Merton
-            j = rp.jumps
-            tv = (rp.sigma * np.sqrt(252)) ** 2
-            jv = j["lambda_j"] * (j["mu_j"] ** 2 + j["sigma_j"] ** 2)
-            ms = np.sqrt(max(tv - jv, tv * 0.25))
-            engines_paths.append(
-                MertonJDEngine().simulate(
-                    n_paths=500,
-                    n_steps=horizon,
-                    dt=dt,
-                    S0=current_price,
-                    mu=rp.mu * 252,
-                    sigma=ms,
-                    lambda_j=j["lambda_j"],
-                    mu_j=j["mu_j"],
-                    sigma_j=j["sigma_j"],
-                    random_state=int(seeds[1]),
-                )
-            )
-            # Regime-Switching
-            ann_params = [
-                {
-                    "mu": self._calibrated[i].mu * 252,
-                    "sigma": self._calibrated[i].sigma * np.sqrt(252),
-                }
-                for i in range(self.n_regimes)
+                for name, seed in zip(engine_names, seeds, strict=True)
             ]
-            assert self._transition_matrix is not None
-            engines_paths.append(
-                RegimeSwitchingEngine(
-                    regime_params=ann_params,
-                    transition_matrix=self._transition_matrix,
-                ).simulate(
-                    n_paths=500,
-                    n_steps=horizon,
-                    dt=dt,
-                    S0=current_price,
-                    random_state=int(seeds[2]),
+            fold_a.append(np.array([np.mean(np.abs(x - actual)) for x in samples]))
+            fold_b.append(
+                np.array(
+                    [
+                        [np.mean(np.abs(xi[:, None] - xj[None, :])) for xj in samples]
+                        for xi in samples
+                    ]
                 )
             )
-            # Rough Bergomi (if enabled)
-            if self.use_rough_bergomi:
-                rb = rp.rough_bergomi
-                engines_paths.append(
-                    RoughBergomiEngine().simulate(
-                        n_paths=500,
-                        n_steps=horizon,
-                        dt=dt,
-                        S0=current_price,
-                        H=rb.get("H", 0.1),
-                        xi=rb.get("xi", 0.04),
-                        eta=rb.get("eta", 1.9),
-                        rho=rb.get("rho", -0.7),
-                        mu=rp.mu * 252,
-                        random_state=int(seeds[3]),
-                    )
-                )
 
-            for eng_idx, eng_paths in enumerate(engines_paths):
-                terminal_rets = np.log(eng_paths[:, -1] / current_price)
-                mae = float(np.mean(np.abs(terminal_rets - actual_terminal)))
-                spread = float(np.mean(np.abs(terminal_rets[:, None] - terminal_rets[None, :]))) / 2
-                fold_crps[fold, eng_idx] = mae - spread
+        if not fold_a:
+            raise ValueError(
+                "No usable folds: each fold needs >= 60 training observations and "
+                f"{horizon} validation observations. Use more data or fewer folds."
+            )
 
-        # Optimize weights to minimize weighted CRPS
-        def objective(w: np.ndarray) -> float:
-            w_pos = np.abs(w)
-            w_norm = w_pos / w_pos.sum()
-            return float(np.mean(fold_crps @ w_norm))
+        a_bar = np.mean(fold_a, axis=0)
+        b_bar = np.mean(fold_b, axis=0)
 
-        x0 = np.ones(n_engines) / n_engines
-        result = minimize(
-            objective, x0, method="Nelder-Mead", options={"maxiter": 500, "xatol": 1e-4}
+        def mixture_crps(w: np.ndarray) -> float:
+            return float(w @ a_bar - 0.5 * w @ b_bar @ w)
+
+        # CRPS values are O(sigma) ~ 1e-2, below SLSQP's default tolerance;
+        # optimise a normalised objective so the solver actually moves.
+        norm = float(np.mean(a_bar)) or 1.0
+        res = minimize(
+            lambda w: mixture_crps(w) / norm,
+            np.full(k, 1.0 / k),
+            method="SLSQP",
+            bounds=[(0.0, 1.0)] * k,
+            constraints=[{"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)}],
+            options={"ftol": 1e-10, "maxiter": 500},
         )
-
-        optimal = np.abs(result.x)
+        optimal = np.clip(res.x, 0.0, None)
         optimal /= optimal.sum()
 
-        # Store for use in _compute_engine_weights
-        self._optimal_weights = dict(zip(engine_names, optimal, strict=False))
+        self._optimal_weights = dict(zip(engine_names, optimal.tolist(), strict=True))
         logger.info(f"CRPS-optimal weights: {self._optimal_weights}")
+
+        a_arr, b_arr = np.array(fold_a), np.array(fold_b)
+        crps_by_fold = a_arr - 0.5 * np.diagonal(b_arr, axis1=1, axis2=2)
+
+        # Leave the forecaster fitted on the full sample, not the last fold.
+        self.fit(r)
 
         return {
             "optimal_weights": optimal,
-            "crps_by_fold": fold_crps,
             "engine_names": engine_names,
+            "crps_by_fold": crps_by_fold,
+            "mixture_crps": mixture_crps(optimal),
+            "n_folds_used": len(fold_a),
         }
 
     # ------------------------------------------------------------------ #
     # Shared helpers
     # ------------------------------------------------------------------ #
 
-    def _garch_scale(self) -> float:
-        """GARCH conditional vol / unconditional vol ratio."""
+    def _current_proba(self) -> np.ndarray:
+        """Regime probabilities at the last observation (filtered if configured)."""
+        obs = self._obs if self._obs is not None else self._returns
+        if self.use_filtered and hasattr(self._detector, "predict_proba_filtered"):
+            return np.asarray(self._detector.predict_proba_filtered(obs)[-1])
+        return np.asarray(self._detector.predict_proba(obs)[-1])
+
+    def _conditioning(self, proba: np.ndarray, horizon: int, dt: float) -> dict[str, Any]:
+        """Current-state inputs shared by all engines for one forecast.
+
+        GARCH tells us what variance to expect over the horizon given *today's*
+        volatility. We compare it with what each engine would otherwise expect
+        over the same horizon and rescale volatility by the ratio:
+
+        * ``static_scale``: vs. the current regime's variance, for engines
+          that run with a single regime's parameters (Merton, Rough Bergomi).
+        * ``rs_scale``: vs. the regime-switching model's own expected
+          variance, propagating ``proba`` through the transition matrix.
+
+        Heston is conditioned directly via ``v0`` (GARCH current variance).
+        """
+        regime = int(np.argmax(proba))
+        garch_v0 = self._garch_current_annual_variance()
+        out: dict[str, Any] = {
+            "regime": regime,
+            "garch_v0": garch_v0,
+            "static_scale": 1.0,
+            "rs_scale": 1.0,
+        }
         if self._garch is None or self._garch._result is None:
-            return 1.0
-        garch_vol = self._garch.forecast(horizon=1)
-        cond_vol_daily = garch_vol[0] / np.sqrt(252)
-        uncond_vol = float(np.std(self._returns))
-        scale = cond_vol_daily / uncond_vol if uncond_vol > 1e-10 else 1.0
-        return float(np.clip(scale, *self.bounds.garch_scale_clamp))
+            return out
+
+        h_days = max(1, int(round(horizon * dt * 252)))
+        try:
+            garch_vol = self._garch.forecast(horizon=h_days)  # annualised, per day
+        except (ValueError, np.linalg.LinAlgError, RuntimeError):
+            logger.warning("GARCH horizon forecast failed; no vol scaling", exc_info=True)
+            return out
+        garch_var = float(np.mean(garch_vol**2)) / 252  # mean daily variance
+
+        sig2 = np.array([self._calibrated[i].sigma ** 2 for i in range(self.n_regimes)])
+        p = np.asarray(proba, dtype=float)
+        p = p / p.sum()
+        assert self._transition_matrix is not None
+        rs_var = 0.0
+        for _ in range(h_days):
+            p = p @ self._transition_matrix
+            rs_var += float(p @ sig2)
+        rs_var /= h_days
+
+        lo, hi = self.bounds.garch_scale_clamp
+
+        def ratio(model_var: float) -> float:
+            if model_var <= 1e-16:
+                return 1.0
+            return float(np.clip(np.sqrt(garch_var / model_var), lo, hi))
+
+        out["static_scale"] = ratio(float(sig2[regime]))
+        out["rs_scale"] = ratio(rs_var)
+        return out
+
+    def _allocate_paths(self, weights: dict[str, float], n_paths: int) -> dict[str, int]:
+        """Split ``n_paths`` across engines in proportion to ``weights``.
+
+        Heuristic weights guarantee each engine a small minimum share so every
+        engine is represented; optimized weights are followed exactly.
+        """
+        if self._optimal_weights is not None:
+            min_paths = 0
+        else:
+            min_paths = min(50 if self.use_rough_bergomi else 100, n_paths // 10)
+        alloc = {
+            name: (max(int(w * n_paths), min_paths) if w > 0 else 0)
+            for name, w in weights.items()
+            if name != "regime_switching"
+        }
+        alloc["regime_switching"] = n_paths - sum(alloc.values())
+        while alloc["regime_switching"] < 0:  # minimums overshot: trim largest
+            largest = max((k for k in alloc if k != "regime_switching"), key=alloc.__getitem__)
+            alloc[largest] -= 1
+            alloc["regime_switching"] += 1
+        return alloc
+
+    def _simulate_engine(
+        self,
+        name: str,
+        n_paths: int,
+        horizon: int,
+        dt: float,
+        S0: float,
+        cond: dict[str, Any],
+        seed: int,
+    ) -> np.ndarray:
+        """Simulate one engine with current-state conditioning.
+
+        Regime ``mu`` values are mean *log* returns; each engine's drift input
+        is converted (see :mod:`synthquant.simulation.drift`) so the simulated
+        mean log return matches the estimate instead of being biased by an
+        extra -sigma^2/2.
+        """
+        rp = self._calibrated[cond["regime"]]
+        mu_log = rp.mu * 252
+
+        if name == "heston":
+            h = rp.heston
+            v0 = cond["garch_v0"] if cond["garch_v0"] is not None else h["v0"]
+            return HestonEngine().simulate(
+                n_paths=n_paths,
+                n_steps=horizon,
+                dt=dt,
+                S0=S0,
+                v0=v0,
+                mu=heston_drift(mu_log, v0, h["theta"], h["kappa"], horizon * dt),
+                kappa=h["kappa"],
+                theta=h["theta"],
+                sigma_v=h["sigma_v"],
+                rho=h["rho"],
+                random_state=seed,
+            )
+
+        if name == "merton_jd":
+            # Regime sigma covers ALL variation (diffusion + jumps); subtract the
+            # expected jump variance to get the diffusion-only sigma.
+            j = rp.jumps
+            total_ann_var = (rp.sigma * cond["static_scale"]) ** 2 * 252
+            jump_var = j["lambda_j"] * (j["mu_j"] ** 2 + j["sigma_j"] ** 2)
+            sigma = float(np.sqrt(max(total_ann_var - jump_var, total_ann_var * 0.25)))
+            return MertonJDEngine().simulate(
+                n_paths=n_paths,
+                n_steps=horizon,
+                dt=dt,
+                S0=S0,
+                mu=merton_drift(mu_log, sigma, j["lambda_j"], j["mu_j"], j["sigma_j"]),
+                sigma=sigma,
+                lambda_j=j["lambda_j"],
+                mu_j=j["mu_j"],
+                sigma_j=j["sigma_j"],
+                random_state=seed,
+            )
+
+        if name == "regime_switching":
+            ann_params = []
+            for i in range(self.n_regimes):
+                cp = self._calibrated[i]
+                sigma_i = cp.sigma * cond["rs_scale"] * np.sqrt(252)
+                ann_params.append({"mu": gbm_drift(cp.mu * 252, sigma_i), "sigma": sigma_i})
+            assert self._transition_matrix is not None
+            return RegimeSwitchingEngine(
+                regime_params=ann_params,
+                transition_matrix=self._transition_matrix,
+                initial_regime=cond["regime"],
+            ).simulate(n_paths=n_paths, n_steps=horizon, dt=dt, S0=S0, random_state=seed)
+
+        if name == "rough_bergomi":
+            rb = rp.rough_bergomi or self._calibrate_rough_bergomi(np.empty(0), rp.sigma)
+            xi = rb["xi"] * cond["static_scale"] ** 2
+            return RoughBergomiEngine().simulate(
+                n_paths=n_paths,
+                n_steps=horizon,
+                dt=dt,
+                S0=S0,
+                H=rb["H"],
+                xi=xi,
+                eta=rb["eta"],
+                rho=rb["rho"],
+                mu=rough_bergomi_drift(mu_log, xi),
+                random_state=seed,
+            )
+
+        raise ValueError(f"Unknown engine: {name}")
 
     def _garch_current_annual_variance(self) -> float | None:
         """Return GARCH 1-step forecast as annualised variance.

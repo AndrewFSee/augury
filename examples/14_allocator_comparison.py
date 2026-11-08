@@ -13,7 +13,6 @@ cumulative PnL, max drawdown, and B&H capture ratio.
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -282,7 +281,7 @@ if results_db:
         caps = [r[key_c] for r in results_db]
         pnls = [r[key_p] for r in results_db]
         bh_sharpes = [r["bh_sharpe"] for r in results_db]
-        deltas = [s - b for s, b in zip(sharpes, bh_sharpes)]
+        deltas = [s - b for s, b in zip(sharpes, bh_sharpes, strict=False)]
         wins = sum(1 for d in deltas if d > 0)
 
         print(f"  {label}:")

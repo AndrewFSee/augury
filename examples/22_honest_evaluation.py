@@ -183,7 +183,7 @@ def run_walk_forward(returns: np.ndarray, prices: np.ndarray) -> dict[str, Strat
     n = len(returns)
     strats = {name: StratMetrics(name) for name in
               ["bh", "ma200", "vol_bh", "mom_only", "mom_vol"]}
-    prev_expo = {k: 0.0 for k in strats}
+    prev_expo = dict.fromkeys(strats, 0.0)
 
     t = LOOKBACK
     while t + EMBARGO + HORIZON <= n:

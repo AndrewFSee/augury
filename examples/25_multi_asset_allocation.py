@@ -209,7 +209,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     rmap = {r: i for i, r in enumerate(ridx)}
 
     for day in range(ridx[0], n):
-        cost = {nm: 0.0 for nm in names}
+        cost = dict.fromkeys(names, 0.0)
         if day in rset:
             ri = rmap[day]
             for nm in names:
@@ -246,8 +246,8 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
         cal = mu / abs(dd) if dd < 0 else float("inf")
         cv = float(np.mean(np.sort(r)[: max(1, len(r) // 20)]))
         tr = float(c[-1] - 1)
-        return dict(sh=sh, so=so, cal=cal, dd=dd, cv=cv,
-                    tr=tr, mu=mu, vol=vol)
+        return {"sh": sh, "so": so, "cal": cal, "dd": dd, "cv": cv,
+                    "tr": tr, "mu": mu, "vol": vol}
 
     print(f"\n{'=' * 80}")
     print("  STRATEGY PERFORMANCE  (multi-asset strategies are 100% invested)")
@@ -266,7 +266,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
 
     # Key comparison
     fm, tm = M["fcast_rp"], M["trail_rp"]
-    print(f"\n  Forecast RP vs Trailing RP:")
+    print("\n  Forecast RP vs Trailing RP:")
     print(f"    Sharpe:  {fm['sh']:+.3f} vs {tm['sh']:+.3f}  "
           f"(delta = {fm['sh'] - tm['sh']:+.4f})")
     print(f"    MaxDD:   {fm['dd']:+.1%} vs {tm['dd']:+.1%}")
@@ -315,7 +315,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
 
     for tk in TICKERS:
         fwd: list[float] = []
-        for i, ri_val in enumerate(ridx):
+        for ri_val in ridx:
             end = ri_val + EMBARGO + HORIZON
             if end <= n:
                 fwd.append(float(
@@ -383,7 +383,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"{'=' * 80}")
 
     cp_a = np.array(crisis_p)
-    print(f"\n  SPY crisis probability:")
+    print("\n  SPY crisis probability:")
     print(f"    Mean: {cp_a.mean():.3f}   Max: {cp_a.max():.3f}   "
           f"> {CRISIS_TH:.0%}: {(cp_a > CRISIS_TH).mean():.1%}")
 

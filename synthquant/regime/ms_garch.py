@@ -145,6 +145,7 @@ class MarkovSwitchingGARCH:
         self._check_fitted()
         if self._label_order is None:
             self._anchor_labels()
+        assert self._label_order is not None
         param_map = dict(
             zip(self._result.model.data.param_names, self._result.params, strict=False)
         )

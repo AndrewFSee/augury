@@ -420,15 +420,15 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"\n{'=' * 80}")
     print("  VAR EXCEEDANCE RATES  (nominal vs actual)")
     print(f"{'=' * 80}")
-    print(f"\n  A well-calibrated VaR(α) should be breached exactly α% of the time.")
-    print(f"  Over-coverage (too few breaches) = conservative.  Under-coverage = dangerous.\n")
+    print("\n  A well-calibrated VaR(α) should be breached exactly α% of the time.")
+    print("  Over-coverage (too few breaches) = conservative.  Under-coverage = dangerous.\n")
 
     hdr = f"  {'':>6}"
     for a in VAR_ALPHAS:
         hdr += f"  VaR{int(a*100):>2}% nom={a:.0%}"
     print(hdr)
 
-    breaches_all = {name: {a: 0 for a in VAR_ALPHAS} for name, _ in MODEL_INFO}
+    breaches_all = {name: dict.fromkeys(VAR_ALPHAS, 0) for name, _ in MODEL_INFO}
     total_all = 0
 
     for tk in TICKERS:
@@ -460,14 +460,14 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"\n{'=' * 80}")
     print("  CONFIDENCE INTERVAL COVERAGE")
     print(f"{'=' * 80}")
-    print(f"\n  Nominal coverage vs empirical coverage.  Perfect = diagonal.\n")
+    print("\n  Nominal coverage vs empirical coverage.  Perfect = diagonal.\n")
 
     print(f"  {'Ticker':>6}  {'Model':>10}", end="")
     for lv in CI_LEVELS:
         print(f"  {lv:.0%} CI", end="")
     print()
 
-    cov_all = {name: {lv: 0 for lv in CI_LEVELS} for name, _ in MODEL_INFO}
+    cov_all = {name: dict.fromkeys(CI_LEVELS, 0) for name, _ in MODEL_INFO}
 
     for tk in TICKERS:
         actual = np.array(results[tk]["actual_ret"])
@@ -499,7 +499,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print()
 
     # Calibration error
-    print(f"\n  Calibration error (|empirical - nominal|):")
+    print("\n  Calibration error (|empirical - nominal|):")
     for name, _ in MODEL_INFO:
         errs = [abs(cov_all[name][lv] / total_all - lv) for lv in CI_LEVELS]
         print(f"    {name:>10}: mean={np.mean(errs):.3f}  max={np.max(errs):.3f}")
@@ -508,8 +508,8 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"\n{'=' * 80}")
     print("  PIT HISTOGRAM  (Probability Integral Transform)")
     print(f"{'=' * 80}")
-    print(f"\n  A calibrated forecast produces a uniform PIT distribution.")
-    print(f"  KS test p-value > 0.05 means we cannot reject uniformity.\n")
+    print("\n  A calibrated forecast produces a uniform PIT distribution.")
+    print("  KS test p-value > 0.05 means we cannot reject uniformity.\n")
 
     n_bins = 10
     for name, pfx in MODEL_INFO:
@@ -540,7 +540,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"{'=' * 80}")
     print("  CRPS COMPARISON  (lower = better)")
     print(f"{'=' * 80}")
-    print(f"\n  CRPS measures the full-distribution forecast accuracy.\n")
+    print("\n  CRPS measures the full-distribution forecast accuracy.\n")
 
     total_crps: dict[str, list] = {name: [] for name, _ in MODEL_INFO}
 
@@ -608,18 +608,18 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
             all_fv[name].extend(results[tk][f"{pfx}_fvol"])
     all_av_arr = np.array(all_av)
 
-    print(f"  Aggregate vol rank correlation:")
+    print("  Aggregate vol rank correlation:")
     for name, _ in vol_models:
         rho, _ = spearmanr(np.array(all_fv[name]), all_av_arr)
         print(f"    {name:>10}:  ρ = {rho:+.3f}")
-    print(f"\n  (GJR-SKEW has identical vol to GJR-skewt — differs only in tail shape.)")
+    print("\n  (GJR-SKEW has identical vol to GJR-skewt — differs only in tail shape.)")
 
     # ── 3f. Conditional Calibration ─────────────────────────────────────
     print(f"\n{'=' * 80}")
     print("  CONDITIONAL CALIBRATION  (does calibration hold in all regimes?)")
     print(f"{'=' * 80}")
-    print(f"\n  Splitting windows by realised vol tertile: "
-          f"calm / normal / stressed\n")
+    print("\n  Splitting windows by realised vol tertile: "
+          "calm / normal / stressed\n")
 
     all_actual_vol = np.array(all_av)
     q33 = np.quantile(all_actual_vol, 1 / 3)
@@ -659,7 +659,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"{'=' * 80}")
     print("  TAIL BEHAVIOUR  (worst-case accuracy)")
     print(f"{'=' * 80}")
-    print(f"\n  How accurate are the tails when actual returns are in the worst 10%?\n")
+    print("\n  How accurate are the tails when actual returns are in the worst 10%?\n")
 
     all_actual_ret: list = []
     all_q5: dict[str, list] = {name: [] for name, _ in MODEL_INFO}
@@ -680,12 +680,12 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"  Worst 10% of outcomes: {n_bad} windows (actual ret ≤ {thresh:.3f})")
     print(f"  Mean actual return in these windows: {all_actual_ret_arr[bad_mask].mean():.3f}")
     print()
-    print(f"  In these bad windows, did the VaR5% capture the loss?")
+    print("  In these bad windows, did the VaR5% capture the loss?")
     for name, _ in MODEL_INFO:
         warn = float(np.mean(all_actual_ret_arr[bad_mask] < all_q5[name][bad_mask]))
         print(f"    {name:>10}:  {1 - warn:.1%} of worst outcomes were within VaR5%")
 
-    print(f"\n  Average loss the model expected (VaR5%) vs actual loss:")
+    print("\n  Average loss the model expected (VaR5%) vs actual loss:")
     for name, _ in MODEL_INFO:
         print(f"    {name:>10} expected:  {all_q5[name][bad_mask].mean():+.3f}")
     print(f"    {'Actual':>10}:             {all_actual_ret_arr[bad_mask].mean():+.3f}")
@@ -694,7 +694,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"\n{'=' * 80}")
     print("  EXTERNAL DATA IMPACT SUMMARY")
     print(f"{'=' * 80}")
-    print(f"\n  Comparing each enhancement against the relevant baseline.\n")
+    print("\n  Comparing each enhancement against the relevant baseline.\n")
 
     # CRPS improvement vs baselines
     gjr_crps = agg_vals["GJR-skewt"]
@@ -717,7 +717,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
         print(f"  {label:>20}  {model:>10}  {model_crps:>10.5f}  {diff_pct:>+11.1f}%  {verdict:>10}")
 
     # Stressed-regime improvement
-    print(f"\n  Stressed-regime 50% CI coverage (target: 50%):")
+    print("\n  Stressed-regime 50% CI coverage (target: 50%):")
     stressed_indices = []
     for tk in TICKERS:
         for i, av in enumerate(results[tk]["actual_vol"]):
@@ -738,7 +738,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     print(f"\n{'=' * 80}")
     print("  INTERPRETATION")
     print(f"{'=' * 80}")
-    print(f"""
+    print("""
   Eight models tested — all share the same GJR-GARCH(1,1) + skewed-t
   fit.  Only the vol scale and/or distribution shape differ:
 

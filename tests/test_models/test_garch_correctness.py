@@ -8,6 +8,7 @@ converge to known unconditional values.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from synthquant.models.garch import GARCHModel
 
@@ -226,3 +227,41 @@ class TestGARCHDistributionalProperties:
 
         k = sp_kurtosis(all_returns, fisher=True)
         assert k > 0, f"GARCH returns should be leptokurtic, got excess kurtosis={k:.3f}"
+
+
+# ===========================================================================
+# Conditional simulation (regression tests)
+# ===========================================================================
+
+
+class TestGARCHConditionalSimulation:
+    """simulate() must start from today's conditional variance, not the
+    unconditional level, and must honour random_state."""
+
+    @staticmethod
+    def _fit_ending_in_stress() -> GARCHModel:
+        calm = _simulate_garch11_data(n_obs=1500, seed=7)
+        rng = np.random.default_rng(8)
+        stress = rng.standard_normal(20) * 0.04  # ~4% daily moves at the end
+        model = GARCHModel(vol_model="GARCH", p=1, q=1, dist="normal")
+        return model.fit(np.concatenate([calm, stress]), scale=100.0)
+
+    def test_first_step_vol_matches_conditional_forecast(self):
+        model = self._fit_ending_in_stress()
+        paths = model.simulate(n_paths=20_000, horizon=5, random_state=0)
+        sim_vol_step1 = float(np.std(paths[:, 0]))
+        cond_vol_step1 = float(model.forecast(horizon=1)[0] / np.sqrt(252))
+        res = model._result
+        persistence = res.params["alpha[1]"] + res.params["beta[1]"]
+        uncond_vol = float(np.sqrt(res.params["omega"] / (1 - persistence)) / 100.0)
+
+        assert sim_vol_step1 == pytest.approx(cond_vol_step1, rel=0.05)
+        assert sim_vol_step1 > 1.5 * uncond_vol
+
+    def test_random_state_is_reproducible(self):
+        model = self._fit_ending_in_stress()
+        a = model.simulate(n_paths=50, horizon=10, random_state=123)
+        b = model.simulate(n_paths=50, horizon=10, random_state=123)
+        c = model.simulate(n_paths=50, horizon=10, random_state=124)
+        np.testing.assert_array_equal(a, b)
+        assert not np.array_equal(a, c)

@@ -150,7 +150,7 @@ class MarketDataFetcher:
             s = self._data[key]
             # Reindex to common dates, forward-fill gaps (weekends etc.)
             aligned = s.reindex(pd.DatetimeIndex(dates), method="ffill")
-            return aligned.values.astype(float)
+            return aligned.to_numpy(dtype=float)
 
         return MarketSnapshot(
             dates=dates,

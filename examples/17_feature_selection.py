@@ -19,7 +19,6 @@ The experiment is structured as:
 from __future__ import annotations
 
 import itertools
-import sys
 import time
 import warnings
 
@@ -185,7 +184,6 @@ def evaluate_feature_set(
 ) -> dict:
     """Run a feature set across all tickers/periods and aggregate."""
     results = []
-    bh_results = []
 
     for ticker, periods in ticker_data.items():
         for period_name, returns in periods.items():
@@ -407,7 +405,7 @@ n_dd = _normalize(dds)
 
 composite = 0.4 * n_sharpe + 0.3 * n_cap + 0.3 * n_dd
 
-ranked = sorted(zip(composite, all_sorted), key=lambda x: x[0], reverse=True)
+ranked = sorted(zip(composite, all_sorted, strict=False), key=lambda x: x[0], reverse=True)
 
 print(f"  {'Rank':<5} {'Feature Set':<45} {'Score':>8} {'Sharpe':>8} {'Cap':>8} {'MaxDD':>8}")
 print(f"  {'-'*5} {'-'*45} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")

@@ -7,7 +7,6 @@ import pandas as pd
 
 try:
     import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
 except ImportError as e:
     raise ImportError(
         "Plotly is required for dashboard plots. "
@@ -49,7 +48,7 @@ def plot_fan_chart(
     fig = go.Figure()
     colors = ["rgba(68, 114, 196, 0.15)", "rgba(68, 114, 196, 0.20)", "rgba(68, 114, 196, 0.25)"]
 
-    for (lo, hi), color in zip(percentiles, colors):
+    for (lo, hi), color in zip(percentiles, colors, strict=False):
         lower = np.percentile(paths, lo, axis=0)
         upper = np.percentile(paths, hi, axis=0)
         fig.add_trace(

@@ -21,6 +21,7 @@ from synthquant.models.garch import GARCHModel
 from synthquant.regime.ensemble import EnsembleRegimeDetector
 from synthquant.regime.hmm import HMMRegimeDetector
 from synthquant.regime.ms_garch import MarkovSwitchingGARCH
+from synthquant.simulation.drift import gbm_drift
 from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
 
 logger = logging.getLogger(__name__)
@@ -168,6 +169,8 @@ class ProbabilisticForecaster:
         vol_model: GARCH variant for volatility conditioning.
         garch_dist: Innovation distribution for GARCH.
         random_state: Seed for reproducibility.
+        use_filtered: Use forward-only filtered regime probabilities (no look-ahead).
+        vol_scale_clamp: Sanity bounds on the GARCH volatility rescaling factor.
     """
 
     def __init__(
@@ -179,6 +182,7 @@ class ProbabilisticForecaster:
         garch_dist: str = "normal",
         random_state: int | None = None,
         use_filtered: bool = True,
+        vol_scale_clamp: tuple[float, float] = (0.25, 4.0),
     ) -> None:
         self.detector_type = detector
         self.n_regimes = n_regimes
@@ -187,6 +191,7 @@ class ProbabilisticForecaster:
         self.garch_dist = garch_dist
         self.random_state = random_state
         self.use_filtered = use_filtered
+        self.vol_scale_clamp = vol_scale_clamp
 
         self._detector: Any = None
         self._garch: GARCHModel | None = None
@@ -194,6 +199,7 @@ class ProbabilisticForecaster:
         self._transition_matrix: np.ndarray | None = None
         self._fitted = False
         self._returns: np.ndarray | None = None
+        self._last_vol_scale: float = 1.0
 
     def fit(self, returns: np.ndarray) -> ProbabilisticForecaster:
         """Fit regime detector and volatility model to historical returns.
@@ -259,19 +265,18 @@ class ProbabilisticForecaster:
         current_proba = proba[-1]
         current_regime = int(np.argmax(current_proba))
 
-        # Scale regime volatilities using GARCH's latest conditional vol
-        regime_params = self._condition_on_garch(horizon)
+        # Scale regime volatilities so the model's expected variance over the
+        # horizon matches GARCH's forecast from today's conditional variance
+        regime_params = self._condition_on_garch(horizon, dt, current_proba)
 
-        # Annualise regime params for the simulation engine
+        # Annualise regime params for the simulation engine. Regime mu is a
+        # mean *log* return; the engine expects arithmetic drift (it subtracts
+        # sigma^2/2 itself), so convert to avoid a double convexity correction.
         ann_params = []
         for i in range(self.n_regimes):
             rp = regime_params[i]
-            ann_params.append(
-                {
-                    "mu": rp["mu"] * 252,  # daily → annual drift
-                    "sigma": rp["sigma"] * np.sqrt(252),  # daily → annual vol
-                }
-            )
+            sigma_ann = rp["sigma"] * np.sqrt(252)
+            ann_params.append({"mu": gbm_drift(rp["mu"] * 252, sigma_ann), "sigma": sigma_ann})
 
         # Build and run simulation engine
         assert self._transition_matrix is not None, "fit() must be called before forecast()"
@@ -332,6 +337,7 @@ class ProbabilisticForecaster:
                 "vol_model": self.vol_model,
                 "dt": dt,
                 "annualised_params": ann_params,
+                "vol_scale": self._last_vol_scale,
             },
         )
 
@@ -444,8 +450,8 @@ class ProbabilisticForecaster:
                 mu = float(rp["means"][0]) if isinstance(rp["means"], list) else float(rp["means"])
                 cov = rp.get("covariances", rp.get("sigma", 0.01))
                 if isinstance(cov, list):
-                    raw = cov[0][0] if isinstance(cov[0], list) else cov[0]
-                    sigma = float(np.sqrt(abs(raw)))
+                    var0 = cov[0][0] if isinstance(cov[0], list) else cov[0]
+                    sigma = float(np.sqrt(abs(var0)))
                 else:
                     sigma = float(np.sqrt(abs(cov)))
                 params[i] = {"mu": mu, "sigma": sigma}
@@ -476,41 +482,45 @@ class ProbabilisticForecaster:
         row_sums = trans.sum(axis=1, keepdims=True)
         return trans / row_sums
 
-    def _condition_on_garch(self, horizon: int) -> dict[int, dict[str, Any]]:
-        """Scale regime volatilities using GARCH's conditional forecast.
+    def _condition_on_garch(
+        self, horizon: int, dt: float, proba: np.ndarray
+    ) -> dict[int, dict[str, Any]]:
+        """Rescale regime volatilities to agree with GARCH over the horizon.
 
-        Uses the ratio of GARCH's 1-step forecast to the unconditional
-        volatility to scale regime-specific sigmas, capturing the current
-        volatility state.
+        Compares GARCH's mean variance forecast over the horizon (which starts
+        from today's conditional variance and mean-reverts) with the regime
+        model's own expected variance over the same horizon (``proba``
+        propagated through the transition matrix). All regime sigmas are
+        multiplied by the square root of that ratio. Because the comparison is
+        regime-relative, being in the high-vol regime is not counted twice.
         """
         if self._garch is None or self._garch._result is None:
             return self._regime_params
+        assert self._transition_matrix is not None
 
-        # GARCH 1-step conditional vol
-        garch_vol = self._garch.forecast(horizon=1)
-        cond_vol_daily = garch_vol[0] / np.sqrt(252)  # annualised → daily
+        h_days = max(1, int(round(horizon * dt * 252)))
+        garch_vol = self._garch.forecast(horizon=h_days)  # annualised, per day
+        garch_var = float(np.mean(garch_vol**2)) / 252  # mean daily variance
 
-        # Unconditional daily vol from training data
-        uncond_vol = float(np.std(self._returns))
+        sig2 = np.array([self._regime_params[i]["sigma"] ** 2 for i in range(self.n_regimes)])
+        p = np.asarray(proba, dtype=float) / np.sum(proba)
+        model_var = 0.0
+        for _ in range(h_days):
+            p = p @ self._transition_matrix
+            model_var += float(p @ sig2)
+        model_var /= h_days
 
-        # Scaling ratio: if GARCH says vol is elevated, scale all regimes up
-        scale = cond_vol_daily / uncond_vol if uncond_vol > 1e-10 else 1.0
-
-        # Clamp scaling to avoid extremes
-        scale = float(np.clip(scale, 0.5, 2.0))
-
-        conditioned = {}
-        for i, rp in self._regime_params.items():
-            conditioned[i] = {
-                "mu": rp["mu"],
-                "sigma": rp["sigma"] * scale,
-            }
+        scale = float(np.sqrt(garch_var / model_var)) if model_var > 1e-16 else 1.0
+        self._last_vol_scale = float(np.clip(scale, *self.vol_scale_clamp))
 
         logger.debug(
-            f"GARCH conditioning: cond_vol={cond_vol_daily:.6f}, "
-            f"uncond_vol={uncond_vol:.6f}, scale={scale:.3f}"
+            f"GARCH conditioning: garch_var={garch_var:.3e}, model_var={model_var:.3e}, "
+            f"scale={self._last_vol_scale:.3f}"
         )
-        return conditioned
+        return {
+            i: {"mu": rp["mu"], "sigma": rp["sigma"] * self._last_vol_scale}
+            for i, rp in self._regime_params.items()
+        }
 
     def _check_fitted(self) -> None:
         if not self._fitted:

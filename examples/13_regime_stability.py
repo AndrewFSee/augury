@@ -10,7 +10,6 @@ if forward-only filtering improves real-world performance.
 
 from __future__ import annotations
 
-import sys
 import time
 
 import numpy as np
@@ -118,12 +117,12 @@ for i in range(len(windows) - 1):
 
 print("  REGIME ASSIGNMENT STABILITY (overlapping windows)")
 print("  -------------------------------------------------")
-print(f"  Smoothed (forward-backward):")
+print("  Smoothed (forward-backward):")
 print(f"    Mean flip rate:        {np.mean(smoothed_flips):.1%}")
 print(f"    Max flip rate:         {np.max(smoothed_flips):.1%}")
 print(f"    Mean proba |delta|:    {np.mean(smoothed_proba_diffs):.4f}")
 print()
-print(f"  Filtered (forward-only):")
+print("  Filtered (forward-only):")
 print(f"    Mean flip rate:        {np.mean(filtered_flips):.1%}")
 print(f"    Max flip rate:         {np.max(filtered_flips):.1%}")
 print(f"    Mean proba |delta|:    {np.mean(filtered_proba_diffs):.4f}")
@@ -136,7 +135,7 @@ smoothed_last_proba = [sp[-1] for sp in smoothed_probas]
 filtered_last_proba = [fp[-1] for fp in filtered_probas]
 
 # How often does the "current regime" (last day) differ between methods?
-agree = sum(1 for s, f in zip(smoothed_last_regime, filtered_last_regime) if s == f)
+agree = sum(1 for s, f in zip(smoothed_last_regime, filtered_last_regime, strict=False) if s == f)
 print(f"  Smoothed vs Filtered agreement on LAST-DAY regime: {agree}/{len(windows)} "
       f"({agree/len(windows):.0%})")
 

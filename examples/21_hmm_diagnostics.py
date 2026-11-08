@@ -17,7 +17,6 @@ Sections:
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -115,7 +114,7 @@ def main() -> None:
         label = "calm" if state == 0 else "crisis"
         print(f"  State {state} ({label}): {n_state:,} days ({pct:.1f}%)")
 
-    print(f"\n  Filtered (no look-ahead):")
+    print("\n  Filtered (no look-ahead):")
     for state in range(2):
         n_state = np.sum(filtered_labels == state)
         pct = 100 * n_state / n_total
@@ -160,7 +159,7 @@ def main() -> None:
     print(f"  {'Worst Day':<25} {min_calm:>12.4f} {min_crisis:>12.4f}")
     print(f"  {'Skewness':<25} {skew_calm:>12.3f} {skew_crisis:>12.3f}")
 
-    print(f"\n  HMM estimated params:")
+    print("\n  HMM estimated params:")
     print(f"  {'Param':<20} {'Calm':>12} {'Crisis':>12}")
     print(f"  {'-' * 44}")
     print(f"  {'mu (daily)':<20} {params[0]['mu']:>12.6f} {params[1]['mu']:>12.6f}")
@@ -170,15 +169,16 @@ def main() -> None:
 
     # Transition matrix
     transmat = hmm._model.transmat_
-    print(f"\n  Transition Matrix:")
-    print(f"  {'From \\ To':<12} {'Calm':>10} {'Crisis':>10}")
+    print("\n  Transition Matrix:")
+    header = "From \\ To"  # backslash inside an f-string needs Python 3.12+
+    print(f"  {header:<12} {'Calm':>10} {'Crisis':>10}")
     print(f"  {'Calm':<12} {transmat[0, 0]:>10.4f} {transmat[0, 1]:>10.4f}")
     print(f"  {'Crisis':<12} {transmat[1, 0]:>10.4f} {transmat[1, 1]:>10.4f}")
 
     # Expected regime durations
     dur_calm = 1 / (1 - transmat[0, 0]) if transmat[0, 0] < 1 else float("inf")
     dur_crisis = 1 / (1 - transmat[1, 1]) if transmat[1, 1] < 1 else float("inf")
-    print(f"\n  Expected regime duration:")
+    print("\n  Expected regime duration:")
     print(f"  Calm:   {dur_calm:.1f} days ({dur_calm / 21:.1f} months)")
     print(f"  Crisis: {dur_crisis:.1f} days ({dur_crisis / 21:.1f} months)")
 
@@ -186,8 +186,6 @@ def main() -> None:
     # Section 3: Known Crisis Detection
     # ===================================================================
     section_header("3. KNOWN CRISIS DETECTION (smoothed + filtered)")
-
-    spy_date_strs = pd.Series(spy_dates).dt.strftime("%Y-%m-%d").values
 
     print(f"\n  {'Crisis Event':<22} {'Days':>5} "
           f"{'Smooth%':>8} {'Filter%':>8} "
@@ -351,7 +349,7 @@ def main() -> None:
           f"{'Fwd 21d Vol':>12} {'Fwd 21d Ret':>12}")
     print(f"  {'-' * 58}")
 
-    for lo, hi, label in zip(bins[:-1], bins[1:], bin_labels):
+    for lo, hi, label in zip(bins[:-1], bins[1:], bin_labels, strict=False):
         mask = (p_crisis_filt >= lo) & (p_crisis_filt < hi)
         n = mask.sum()
         if n == 0:
@@ -447,7 +445,7 @@ def main() -> None:
             p_crisis_when_lowvol.append(p_crisis)
 
     total = tp + fp + tn + fn
-    print(f"\n  Confusion Matrix (P(crisis)>0.5 vs top-25% realized vol):")
+    print("\n  Confusion Matrix (P(crisis)>0.5 vs top-25% realized vol):")
     print(f"  {'':>20} {'Actual High':>12} {'Actual Low':>12}")
     print(f"  {'Pred Crisis':>20} {tp:>12} {fp:>12}")
     print(f"  {'Pred Calm':>20} {fn:>12} {tn:>12}")

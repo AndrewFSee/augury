@@ -14,7 +14,6 @@ should switch back to full investment faster during V-shaped bounces.
 
 from __future__ import annotations
 
-import sys
 import time
 import warnings
 
@@ -183,7 +182,7 @@ for ticker in TICKERS:
         elapsed = time.perf_counter() - t0
         bh_pnl = bh["pnl"]
 
-        def cap(x: dict) -> float:
+        def cap(x: dict, bh_pnl: float = bh_pnl) -> float:
             return x["pnl"] / bh_pnl if abs(bh_pnl) > 1e-8 else 0.0
 
         print(f"    B&H:    Sharpe={bh['sharpe']:+.2f}  PnL={bh['pnl']:+.1%}")
@@ -288,7 +287,7 @@ if results_db:
         dds = [r[f"{prefix}_dd"] for r in results_db]
         crises = [r[f"{prefix}_crisis"] for r in results_db]
         bh_sharpes = [r["bh_sharpe"] for r in results_db]
-        beats = sum(1 for s, b in zip(sharpes, bh_sharpes) if s >= b)
+        beats = sum(1 for s, b in zip(sharpes, bh_sharpes, strict=False) if s >= b)
 
         print(f"  {label}:")
         print(f"    Avg Sharpe:     {np.mean(sharpes):+.2f}  (B&H: {np.mean(bh_sharpes):+.2f})")

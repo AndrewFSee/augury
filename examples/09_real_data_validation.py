@@ -12,7 +12,6 @@ import sys
 import warnings
 
 import numpy as np
-import pandas as pd
 from scipy.stats import kurtosis, skew
 
 from synthquant.data.ingest import DataIngestor
@@ -162,7 +161,7 @@ def main():
             single_forecast_comparison(returns, symbol)
 
         # Walk-forward
-        print(f"\n  --- Walk-Forward (500d window, 21d step/horizon, 5000 paths) ---")
+        print("\n  --- Walk-Forward (500d window, 21d step/horizon, 5000 paths) ---")
         for name, Cls in [("Single-engine", ProbabilisticForecaster), ("Ensemble", EnsembleForecaster)]:
             sys.stdout.write(f"    Running {name}...")
             sys.stdout.flush()

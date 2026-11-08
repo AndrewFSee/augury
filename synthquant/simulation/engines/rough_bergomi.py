@@ -77,19 +77,24 @@ class RoughBergomiEngine(SimulationEngine):
         dW_V = W[:, :, 0] * sqrt_dt
         dW_S = W[:, :, 1] * sqrt_dt
 
-        # Approximate fBm via convolution
+        # Volterra process W~(t) = sqrt(2H) * int_0^t (t-s)^(H-1/2) dW(s), via
+        # convolution, so that Var[W~(t)] ~= t^(2H).
         fBm = np.zeros((n_paths, n_steps + 1))
         for k in range(1, n_steps + 1):
             w = kernel[:k][::-1]
-            fBm[:, k] = np.dot(dW_V[:, :k], w)
+            fBm[:, k] = np.sqrt(2 * H) * np.dot(dW_V[:, :k], w)
+
+        # Compensate with the *discretised* process's exact variance rather than
+        # t^(2H): the cell-averaged kernel under-represents the singularity at
+        # small H, and V = xi * exp(eta*W~ - eta^2/2 * Var[W~]) keeps E[V] = xi.
+        fbm_var = np.concatenate([[0.0], 2 * H * dt * np.cumsum(kernel**2)])
 
         # Variance and price paths
         S = np.empty((n_paths, n_steps + 1))
         S[:, 0] = S0
 
         for k in range(n_steps):
-            t = k * dt
-            v = xi * np.exp(eta * fBm[:, k] - 0.5 * eta**2 * t ** (2 * H))
+            v = xi * np.exp(eta * fBm[:, k] - 0.5 * eta**2 * fbm_var[k])
             v_pos = np.maximum(v, 0.0)
             S[:, k + 1] = S[:, k] * np.exp((mu - 0.5 * v_pos) * dt + np.sqrt(v_pos) * dW_S[:, k])
 

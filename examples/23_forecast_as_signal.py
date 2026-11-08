@@ -82,9 +82,7 @@ class StratMetrics:
     def finalize(self, periods_per_year: float = 252 / HORIZON) -> dict[str, float]:
         pnl = self.pnl
         if len(pnl) == 0:
-            return {k: 0.0 for k in [
-                "sharpe", "sortino", "calmar", "max_dd", "cvar95",
-                "total_return", "turnover", "cost_adj_sharpe", "avg_expo"]}
+            return dict.fromkeys(["sharpe", "sortino", "calmar", "max_dd", "cvar95", "total_return", "turnover", "cost_adj_sharpe", "avg_expo"], 0.0)
         mu, sig = pnl.mean(), pnl.std()
         sharpe = mu / sig * np.sqrt(periods_per_year) if sig > 0 else 0.0
 
@@ -272,7 +270,7 @@ def build_forecast(train_rets, current_price):
 def run_walk_forward(returns, prices):
     n = len(returns)
     strats = {name: StratMetrics(name) for name in STRATEGIES}
-    prev_expo = {k: 0.0 for k in strats}
+    prev_expo = dict.fromkeys(strats, 0.0)
 
     # Also track forecast diagnostics
     diagnostics = {
@@ -314,8 +312,8 @@ def run_walk_forward(returns, prices):
             diagnostics["actual_fwd_return"].append(actual_fwd)
 
         # Compute exposures
-        kw = dict(forecast=forecast, returns_window=returns_window,
-                  prices_window=prices_window)
+        kw = {"forecast": forecast, "returns_window": returns_window,
+                  "prices_window": prices_window}
         for name, func in STRATEGIES.items():
             expo = func(**kw)
             turnover = abs(expo - prev_expo[name])

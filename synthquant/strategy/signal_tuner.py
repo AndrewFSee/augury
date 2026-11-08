@@ -307,7 +307,7 @@ class SignalTuner:
 
             def _to_params(x: np.ndarray) -> dict[str, float]:
                 raw = np.asarray(x[:6], dtype=float)
-                total = raw.sum()
+                total = float(raw.sum())
                 if total <= 0:
                     total = 1.0
                 normed = raw / total
@@ -526,7 +526,7 @@ class SignalTuner:
     def _vector_to_params(self, x: np.ndarray) -> dict[str, float]:
         """Convert optimiser vector to parameter dict (weights normalised)."""
         raw = np.asarray(x[:6], dtype=float)
-        total = raw.sum()
+        total = float(raw.sum())
         if total <= 0:
             total = 1.0
         normed = raw / total
