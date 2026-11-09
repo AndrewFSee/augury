@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.strategy.sizing import CVaROptimalSizer, KellyCriterion, RiskParitySizer
+from augury.strategy.sizing import CVaROptimalSizer, KellyCriterion, RiskParitySizer
 
 # ── Kelly Criterion ────────────────────────────────────────────────────────────
 

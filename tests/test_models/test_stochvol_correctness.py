@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.models.stochastic_vol import HestonModel
+from augury.models.stochastic_vol import HestonModel
 
 # ===========================================================================
 # Heston Model — Moment and Distributional Validation

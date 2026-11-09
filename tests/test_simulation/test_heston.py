@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.simulation.engines.heston import HestonEngine
+from augury.simulation.engines.heston import HestonEngine
 
 
 def test_simulate_returns_correct_shape() -> None:

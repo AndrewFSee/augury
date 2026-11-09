@@ -61,7 +61,7 @@ KNOWN_CRISES = {
 
 def fetch_returns(ticker: str) -> tuple[pd.DatetimeIndex, np.ndarray]:
     """Fetch daily log returns for a ticker."""
-    from synthquant.data.ingest import DataIngestor
+    from augury.data.ingest import DataIngestor
 
     ingestor = DataIngestor()
     df = ingestor.fetch(ticker, START, END)
@@ -78,7 +78,7 @@ def section_header(title: str) -> None:
 
 
 def main() -> None:
-    from synthquant.regime.hmm import HMMRegimeDetector
+    from augury.regime.hmm import HMMRegimeDetector
 
     t0 = time.time()
 

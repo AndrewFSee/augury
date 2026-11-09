@@ -10,10 +10,10 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats
 
-from synthquant.regime.clustering import ClusteringRegimeDetector
-from synthquant.regime.ensemble import EnsembleRegimeDetector
-from synthquant.regime.hmm import HMMRegimeDetector
-from synthquant.regime.ms_garch import MarkovSwitchingGARCH
+from augury.regime.clustering import ClusteringRegimeDetector
+from augury.regime.ensemble import EnsembleRegimeDetector
+from augury.regime.hmm import HMMRegimeDetector
+from augury.regime.ms_garch import MarkovSwitchingGARCH
 
 # ---------------------------------------------------------------------------
 # Helpers

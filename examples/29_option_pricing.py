@@ -30,8 +30,8 @@ import yfinance as yf
 from arch import arch_model
 from scipy.stats import norm
 
-from synthquant.analytics.options import ImpliedVolSurface, MCOptionPricer, _bs_call
-from synthquant.simulation.engines.heston import HestonEngine
+from augury.analytics.options import ImpliedVolSurface, MCOptionPricer, _bs_call
+from augury.simulation.engines.heston import HestonEngine
 
 # ── Configuration ────────────────────────────────────────────────────
 TICKER = "SPY"

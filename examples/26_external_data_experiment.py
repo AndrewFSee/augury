@@ -72,8 +72,8 @@ CREDIT_SCALE = 2.0     # credit spread → vol multiplier scaling
 
 from arch.univariate.distribution import SkewStudent as _ArchSkewT  # noqa: E402
 
-from synthquant.data.ingest import DataIngestor  # noqa: E402
-from synthquant.models.garch import GARCHModel  # noqa: E402
+from augury.data.ingest import DataIngestor  # noqa: E402
+from augury.models.garch import GARCHModel  # noqa: E402
 
 # ── Model registry (name, storage prefix) ───────────────────────────────
 MODEL_INFO = [

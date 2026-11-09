@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from synthquant.analytics.risk_metrics import (
+from augury.analytics.risk_metrics import (
     conditional_var,
     expected_shortfall,
     max_drawdown_distribution,
@@ -59,7 +59,7 @@ def test_tail_ratio_is_positive(sample_paths: np.ndarray) -> None:
 
 def test_var_with_positive_drift_is_negative_loss() -> None:
     """VaR for paths with strong positive drift is a moderate negative number."""
-    from synthquant.simulation.engines.gbm import GBMEngine
+    from augury.simulation.engines.gbm import GBMEngine
 
     engine = GBMEngine()
     # Very large drift, very low vol => almost no paths lose money

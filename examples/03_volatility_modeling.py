@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Fit GARCH and Heston models on synthetic data, compare their volatility forecasts."""
-    from synthquant.models.garch import GARCHModel
-    from synthquant.models.stochastic_vol import HestonModel
+    from augury.models.garch import GARCHModel
+    from augury.models.stochastic_vol import HestonModel
 
     logger.info("=== Example 03: Volatility Modeling ===")
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from synthquant.data.storage import ParquetStorage, Storage
+from augury.data.storage import ParquetStorage, Storage
 
 
 @pytest.fixture()

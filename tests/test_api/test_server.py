@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from synthquant.api.server import app
+from augury.api.server import app
 
 
 @pytest.fixture()

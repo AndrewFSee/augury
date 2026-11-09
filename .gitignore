@@ -66,8 +66,8 @@ dmypy.json
 .ipynb_checkpoints
 *.ipynb
 
-# SynthQuant specific
-.synthquant/
+# Augury specific
+.augury/
 *.parquet
 data_cache/
 _*_output.txt

@@ -1,4 +1,4 @@
-# Getting Started with SynthQuant
+# Getting Started with Augury
 
 ## Installation
 
@@ -10,33 +10,33 @@
 ### Basic Install
 
 ```bash
-pip install synthquant
+pip install augury
 ```
 
 ### With Optional Dependencies
 
 ```bash
 # Market data via yfinance
-pip install "synthquant[data]"
+pip install "augury[data]"
 
 # Bayesian calibration via PyMC
-pip install "synthquant[bayesian]"
+pip install "augury[bayesian]"
 
 # REST API server
-pip install "synthquant[api]"
+pip install "augury[api]"
 
 # Interactive dashboard
-pip install "synthquant[dashboard]"
+pip install "augury[dashboard]"
 
 # Everything
-pip install "synthquant[all]"
+pip install "augury[all]"
 ```
 
 ### From Source (Development)
 
 ```bash
-git clone https://github.com/AndrewFSee/synthquant.git
-cd synthquant
+git clone https://github.com/AndrewFSee/augury.git
+cd augury
 pip install -e ".[dev]"
 pre-commit install
 ```
@@ -45,21 +45,21 @@ pre-commit install
 
 ## Configuration
 
-SynthQuant uses `pydantic-settings` for configuration. All settings can be set via:
+Augury uses `pydantic-settings` for configuration. All settings can be set via:
 
-1. Environment variables prefixed with `SYNTHQUANT_`
+1. Environment variables prefixed with `AUGURY_`
 2. A `.env` file in the working directory
 
 ```bash
 # .env
-SYNTHQUANT_N_PATHS=50000
-SYNTHQUANT_RANDOM_SEED=42
-SYNTHQUANT_LOG_LEVEL=DEBUG
-SYNTHQUANT_DATA_CACHE_DIR=/tmp/sq_cache
+AUGURY_N_PATHS=50000
+AUGURY_RANDOM_SEED=42
+AUGURY_LOG_LEVEL=DEBUG
+AUGURY_DATA_CACHE_DIR=/tmp/sq_cache
 ```
 
 ```python
-from synthquant.config import get_settings
+from augury.config import get_settings
 
 settings = get_settings()
 print(settings.n_paths)  # 50000
@@ -72,7 +72,7 @@ print(settings.n_paths)  # 50000
 ### Step 1: Fetch Market Data
 
 ```python
-from synthquant.data.ingest import DataIngestor
+from augury.data.ingest import DataIngestor
 
 ingestor = DataIngestor()
 spy = ingestor.fetch("SPY", start="2020-01-01", end="2023-12-31")
@@ -84,7 +84,7 @@ print(spy.tail())
 ### Step 2: Compute Features
 
 ```python
-from synthquant.data.features import FeatureEngine
+from augury.data.features import FeatureEngine
 
 fe = FeatureEngine()
 returns = fe.rolling_returns(spy["close"], window=1)
@@ -95,7 +95,7 @@ rsi = fe.rsi(spy["close"], period=14)
 ### Step 3: Detect Regimes
 
 ```python
-from synthquant.regime.hmm import HMMRegimeDetector
+from augury.regime.hmm import HMMRegimeDetector
 
 detector = HMMRegimeDetector(n_components=2, random_state=42)
 detector.fit(returns.dropna().values)
@@ -111,7 +111,7 @@ print(f"Regime 1: mu={params[1]['mu']:.6f}, sigma={params[1]['sigma']:.4f}")
 ### Step 4: Run Monte Carlo Simulation
 
 ```python
-from synthquant.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.gbm import GBMEngine
 
 engine = GBMEngine()
 paths = engine.simulate(
@@ -129,7 +129,7 @@ print(f"Paths shape: {paths.shape}")  # (10000, 253)
 ### Step 5: Risk Analytics
 
 ```python
-from synthquant.analytics.risk_metrics import (
+from augury.analytics.risk_metrics import (
     value_at_risk,
     expected_shortfall,
     max_drawdown_distribution,
@@ -147,7 +147,7 @@ print(f"Median max drawdown:     {drawdowns.mean():.4f}")
 ### Step 6: Option Pricing
 
 ```python
-from synthquant.analytics.options import MCOptionPricer
+from augury.analytics.options import MCOptionPricer
 
 pricer = MCOptionPricer()
 call_price = pricer.price_european(
@@ -163,7 +163,7 @@ print(f"MC Call Price: {call_price:.4f}")
 ### Step 7: Position Sizing
 
 ```python
-from synthquant.strategy.sizing import KellyCriterion, RiskParitySizer
+from augury.strategy.sizing import KellyCriterion, RiskParitySizer
 import numpy as np
 
 # Simulate daily returns for two assets
@@ -185,8 +185,8 @@ print(f"Risk Parity Weights: {weights}")
 ## Running the API Server
 
 ```bash
-pip install "synthquant[api]"
-uvicorn synthquant.api.server:app --host 0.0.0.0 --port 8000 --reload
+pip install "augury[api]"
+uvicorn augury.api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Then visit `http://localhost:8000/docs` for the interactive Swagger UI.
@@ -196,7 +196,7 @@ Then visit `http://localhost:8000/docs` for the interactive Swagger UI.
 ## Running the Dashboard
 
 ```bash
-pip install "synthquant[dashboard]"
+pip install "augury[dashboard]"
 streamlit run dashboard/app.py
 ```
 
@@ -212,7 +212,7 @@ pytest -m "not slow and not integration"
 pytest
 
 # With coverage report
-pytest --cov=synthquant --cov-report=html
+pytest --cov=augury --cov-report=html
 ```
 
 ---
@@ -221,4 +221,4 @@ pytest --cov=synthquant --cov-report=html
 
 - See `examples/` for full working scripts
 - Read `docs/architecture.md` for a deep dive into each module
-- Check `synthquant/config.py` for all configurable settings
+- Check `augury/config.py` for all configurable settings

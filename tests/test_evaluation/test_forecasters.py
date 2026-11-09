@@ -1,4 +1,4 @@
-"""Tests for the distributional forecasters in synthquant.forecasters."""
+"""Tests for the distributional forecasters in augury.forecasters."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import pytest
 from arch import arch_model
 from scipy import stats
 
-from synthquant.forecasters import (
+from augury.forecasters import (
     FilteredHistoricalSimulation,
     GaussianForecaster,
     GJRGarchForecaster,

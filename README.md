@@ -1,4 +1,4 @@
-# SynthQuant Engine
+# Augury
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
@@ -6,13 +6,13 @@
 ![SciPy](https://img.shields.io/badge/scipy-%E2%89%A51.10-8caae6?logo=scipy&logoColor=white)
 ![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=d7ff64)
 
-**SynthQuant** forecasts the full distribution of future returns on real market data: price bands, VaR and expected shortfall, and probabilities of reaching a level, at horizons from one day to several months. Every model is judged out of sample with a walk-forward harness, and the default (GJR-GARCH with skew-t innovations) is the one that won. Volatility models, Monte Carlo simulation, regime detection and risk analytics sit around that core.
+**Augury** forecasts the full distribution of future returns on real market data: price bands, VaR and expected shortfall, and probabilities of reaching a level, at horizons from one day to several months. Every model is judged out of sample with a walk-forward harness, and the default (GJR-GARCH with skew-t innovations) is the one that won. Volatility models, Monte Carlo simulation, regime detection and risk analytics sit around that core.
 
 <p align="center">
   <img src="docs/fan_chart.png" alt="SPY 21-day probabilistic forecast fan chart" width="100%">
 </p>
 
-<p align="center"><em>21-trading-day probabilistic price forecast for SPY from the default model, GJR-GARCH with skew-t innovations (<code>synthquant.forecast_prices</code>). Percentile bands show the full predicted distribution; the asymmetric fan comes from the leverage effect, which raises volatility after down days. Regenerate with <code>python scripts/generate_fan_chart.py</code>.</em></p>
+<p align="center"><em>21-trading-day probabilistic price forecast for SPY from the default model, GJR-GARCH with skew-t innovations (<code>augury.forecast_prices</code>). Percentile bands show the full predicted distribution; the asymmetric fan comes from the leverage effect, which raises volatility after down days. Regenerate with <code>python scripts/generate_fan_chart.py</code>.</em></p>
 
 ---
 
@@ -220,7 +220,7 @@ shock then decays at each asset's fitted persistence.
 
 <table>
 <tr>
-<td colspan="4" align="center"><h3>SynthQuant Engine</h3></td>
+<td colspan="4" align="center"><h3>Augury</h3></td>
 </tr>
 
 <tr>
@@ -311,28 +311,28 @@ shock then decays at each asset's fitted persistence.
 
 ```bash
 # Core installation
-pip install synthquant
+pip install augury
 
 # With data fetching (yfinance)
-pip install "synthquant[data]"
+pip install "augury[data]"
 
 # With plotting (matplotlib, for the fan chart script and examples)
-pip install "synthquant[plot]"
+pip install "augury[plot]"
 
 # With Bayesian calibration (PyMC)
-pip install "synthquant[bayesian]"
+pip install "augury[bayesian]"
 
 # With REST API (FastAPI)
-pip install "synthquant[api]"
+pip install "augury[api]"
 
 # With dashboard (Streamlit + Plotly)
-pip install "synthquant[dashboard]"
+pip install "augury[dashboard]"
 
 # Everything
-pip install "synthquant[all]"
+pip install "augury[all]"
 
 # Development
-pip install "synthquant[dev]"
+pip install "augury[dev]"
 ```
 
 ---
@@ -341,7 +341,7 @@ pip install "synthquant[dev]"
 
 ```python
 import yfinance as yf
-from synthquant import forecast_prices
+from augury import forecast_prices
 
 close = yf.download("SPY", period="5y", auto_adjust=True)["Close"].squeeze()
 
@@ -369,8 +369,8 @@ Compare models yourself:
 
 ```python
 import numpy as np
-from synthquant.evaluation import walk_forward
-from synthquant.forecasters import GaussianForecaster, GJRGarchForecaster, LaplaceForecaster
+from augury.evaluation import walk_forward
+from augury.forecasters import GaussianForecaster, GJRGarchForecaster, LaplaceForecaster
 
 returns = np.log(close).diff().dropna()
 res = walk_forward(
@@ -388,15 +388,15 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 
 | Module | Description |
 |--------|-------------|
-| `synthquant.data` | Market data ingestion (yfinance), feature engineering, Parquet storage, realized measures (RV, BPV, semi-variance, Parkinson, Garman-Klass) |
-| `synthquant.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features |
-| `synthquant.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
-| `synthquant.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
-| `synthquant.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
-| `synthquant.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test |
-| `synthquant.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
-| `synthquant.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
-| `synthquant.api` | FastAPI REST + WebSocket server |
+| `augury.data` | Market data ingestion (yfinance), feature engineering, Parquet storage, realized measures (RV, BPV, semi-variance, Parkinson, Garman-Klass) |
+| `augury.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features |
+| `augury.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
+| `augury.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
+| `augury.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
+| `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test |
+| `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
+| `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
+| `augury.api` | FastAPI REST + WebSocket server |
 | `dashboard` | Streamlit interactive dashboard with Plotly charts |
 | `archive/` | Retired code (regime/ensemble forecasters, Rough Bergomi, forecast-driven allocators) — see [archive/README.md](archive/README.md) |
 
@@ -431,12 +431,12 @@ python examples/28_var_backtesting.py
 
 ## Configuration
 
-All settings can be overridden via environment variables prefixed with `SYNTHQUANT_`:
+All settings can be overridden via environment variables prefixed with `AUGURY_`:
 
 ```bash
-SYNTHQUANT_N_PATHS=50000 \
-SYNTHQUANT_RANDOM_SEED=42 \
-SYNTHQUANT_LOG_LEVEL=DEBUG \
+AUGURY_N_PATHS=50000 \
+AUGURY_RANDOM_SEED=42 \
+AUGURY_LOG_LEVEL=DEBUG \
 python my_script.py
 ```
 
@@ -465,7 +465,7 @@ Or via a `.env` file in the project root.
 
 **New default forecaster** — GJR-GARCH with skew-t innovations via `forecast_prices()`, chosen by out-of-sample evidence (see Showcase). The regime-switching and ensemble forecasters were archived.
 
-**New modules** — `synthquant.forecasters` (one `fit`/`predict` interface for GJR, FHS, HAR, Laplace and baselines; correlated multi-asset simulation via `GJRGarchForecaster.simulate`) and `synthquant.evaluation` (walk-forward harness, CRPS/PIT/coverage, Kupiec/Christoffersen/Basel, Diebold-Mariano).
+**New modules** — `augury.forecasters` (one `fit`/`predict` interface for GJR, FHS, HAR, Laplace and baselines; correlated multi-asset simulation via `GJRGarchForecaster.simulate`) and `augury.evaluation` (walk-forward harness, CRPS/PIT/coverage, Kupiec/Christoffersen/Basel, Diebold-Mariano).
 
 ---
 
@@ -475,7 +475,7 @@ Or via a `.env` file in the project root.
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Install dev dependencies: `pip install -e ".[dev]"`
 4. Run tests: `pytest -m "not slow and not integration"`
-5. Lint: `ruff check synthquant/ tests/`
+5. Lint: `ruff check augury/ tests/`
 6. Submit a pull request
 
 ---

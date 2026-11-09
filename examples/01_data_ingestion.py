@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Demonstrate data ingestion, feature engineering, and storage."""
-    from synthquant.data.features import FeatureEngine
-    from synthquant.data.storage import ParquetStorage
+    from augury.data.features import FeatureEngine
+    from augury.data.storage import ParquetStorage
 
     logger.info("=== Example 01: Data Ingestion ===")
 

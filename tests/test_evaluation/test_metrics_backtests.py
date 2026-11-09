@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.analytics.scoring import ForecastScorer
-from synthquant.evaluation import (
+from augury.analytics.scoring import ForecastScorer
+from augury.evaluation import (
     basel_zone,
     christoffersen_test,
     conditional_coverage_test,

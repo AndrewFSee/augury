@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.gpu_engine import GPUEngine
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.gpu_engine import GPUEngine
 
 
 @pytest.fixture()

@@ -1,6 +1,6 @@
 """Generate the README fan chart with the default forecaster.
 
-Fits GJR-GARCH with skew-t innovations (``synthquant.default_forecaster``)
+Fits GJR-GARCH with skew-t innovations (``augury.default_forecaster``)
 to the last two years of SPY daily returns and plots the forecast price
 distribution over the next 21 trading days, after three months of history.
 Saves a dark-themed PNG to docs/fan_chart.png.
@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from synthquant import forecast_prices
+from augury import forecast_prices
 
 # ── Config ───────────────────────────────────────────────────────────
 TICKER = "SPY"

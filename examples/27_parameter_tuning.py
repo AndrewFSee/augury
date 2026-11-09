@@ -46,8 +46,8 @@ N_T_SAMPLES = 10_000
 
 from arch.univariate.distribution import SkewStudent as _ArchSkewT  # noqa: E402
 
-from synthquant.data.ingest import DataIngestor  # noqa: E402
-from synthquant.models.garch import GARCHModel  # noqa: E402
+from augury.data.ingest import DataIngestor  # noqa: E402
+from augury.models.garch import GARCHModel  # noqa: E402
 
 _skt = _ArchSkewT()
 

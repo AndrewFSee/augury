@@ -34,9 +34,9 @@ def make_regime_returns(seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
 
 def main() -> None:
     """Demonstrate regime detection with HMM, GMM, and Ensemble."""
-    from synthquant.regime.clustering import ClusteringRegimeDetector
-    from synthquant.regime.ensemble import EnsembleRegimeDetector
-    from synthquant.regime.hmm import HMMRegimeDetector
+    from augury.regime.clustering import ClusteringRegimeDetector
+    from augury.regime.ensemble import EnsembleRegimeDetector
+    from augury.regime.hmm import HMMRegimeDetector
 
     logger.info("=== Example 02: Regime Detection ===")
     returns, true_regimes = make_regime_returns()

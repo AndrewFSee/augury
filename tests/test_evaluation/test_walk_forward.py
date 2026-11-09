@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.evaluation import walk_forward
-from synthquant.forecasters import (
+from augury.evaluation import walk_forward
+from augury.forecasters import (
     GaussianForecaster,
     GJRGarchForecaster,
     LaplaceForecaster,
@@ -138,7 +138,7 @@ class TestScoring:
     def test_crps_values_match_metric(self):
         r = pd.Series(np.random.default_rng(2).normal(0, 0.01, 260))
         res = walk_forward(r, [LaplaceForecaster()], horizons=(1,), lookback=250, n_samples=500)
-        from synthquant.evaluation import crps_ensemble
+        from augury.evaluation import crps_ensemble
 
         row = res.records.iloc[3]
         t = int(row["origin_idx"])

@@ -7,7 +7,7 @@ import dataclasses
 import numpy as np
 import pytest
 
-from synthquant.strategy.directional import (
+from augury.strategy.directional import (
     CrossSectionalMomentum,
     DirectionalSignal,
     TimeSeriesMomentum,

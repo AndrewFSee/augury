@@ -8,10 +8,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.simulation.drift import gbm_drift, heston_drift, merton_drift
-from synthquant.simulation.engines.heston import HestonEngine
-from synthquant.simulation.engines.merton_jd import MertonJDEngine
-from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
+from augury.simulation.drift import gbm_drift, heston_drift, merton_drift
+from augury.simulation.engines.heston import HestonEngine
+from augury.simulation.engines.merton_jd import MertonJDEngine
+from augury.simulation.engines.regime_switching import RegimeSwitchingEngine
 
 N = 40_000
 T_STEPS = 63

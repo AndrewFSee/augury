@@ -10,20 +10,20 @@ import numpy as np
 import pytest
 from scipy import stats as sp_stats
 
-from synthquant.analytics.options import MCOptionPricer
-from synthquant.analytics.risk_metrics import (
+from augury.analytics.options import MCOptionPricer
+from augury.analytics.risk_metrics import (
     conditional_var,
     max_drawdown_distribution,
     tail_ratio,
     value_at_risk,
 )
-from synthquant.simulation.correlation import CopulaSimulator
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.engines.heston import HestonEngine
-from synthquant.simulation.engines.merton_jd import MertonJDEngine
-from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
-from synthquant.simulation.variance_reduction import antithetic_variates
-from synthquant.strategy.hedging import DeltaHedger, GammaHedger
+from augury.simulation.correlation import CopulaSimulator
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.heston import HestonEngine
+from augury.simulation.engines.merton_jd import MertonJDEngine
+from augury.simulation.engines.regime_switching import RegimeSwitchingEngine
+from augury.simulation.variance_reduction import antithetic_variates
+from augury.strategy.hedging import DeltaHedger, GammaHedger
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 

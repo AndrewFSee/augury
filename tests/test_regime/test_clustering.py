@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.regime.clustering import ClusteringRegimeDetector
+from augury.regime.clustering import ClusteringRegimeDetector
 
 
 @pytest.fixture()

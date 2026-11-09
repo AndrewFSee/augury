@@ -35,8 +35,8 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from synthquant.evaluation import walk_forward
-from synthquant.forecasters import (
+from augury.evaluation import walk_forward
+from augury.forecasters import (
     FilteredHistoricalSimulation,
     GaussianForecaster,
     GJRGarchForecaster,

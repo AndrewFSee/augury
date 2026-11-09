@@ -1,4 +1,4 @@
-"""Plotly figure generators for the SynthQuant dashboard."""
+"""Plotly figure generators for the Augury dashboard."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "Plotly is required for dashboard plots. "
-        "Install with: pip install synthquant[dashboard]"
+        "Install with: pip install augury[dashboard]"
     ) from e
 
 __all__ = [

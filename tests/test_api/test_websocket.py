@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from synthquant.api.websocket import register_websocket_routes
+from augury.api.websocket import register_websocket_routes
 
 
 @pytest.fixture()

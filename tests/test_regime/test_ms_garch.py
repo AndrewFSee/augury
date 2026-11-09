@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.regime.ms_garch import MarkovSwitchingGARCH
+from augury.regime.ms_garch import MarkovSwitchingGARCH
 
 
 @pytest.fixture()

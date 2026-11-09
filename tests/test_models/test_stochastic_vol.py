@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.models.stochastic_vol import HestonModel
+from augury.models.stochastic_vol import HestonModel
 
 
 @pytest.fixture()

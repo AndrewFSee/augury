@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import synthquant
-from synthquant.forecasters import (
+import augury
+from augury.forecasters import (
     DEFAULT_LOOKBACK,
     GJRGarchForecaster,
     LaplaceForecaster,
@@ -38,8 +38,8 @@ def test_default_is_gjr_skewt():
 
 
 def test_top_level_exports():
-    assert synthquant.forecast_prices is forecast_prices
-    assert synthquant.default_forecaster is default_forecaster
+    assert augury.forecast_prices is forecast_prices
+    assert augury.default_forecaster is default_forecaster
 
 
 def test_uses_default_model_and_shapes(fc, prices):

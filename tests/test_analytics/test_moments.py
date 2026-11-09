@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.analytics.moments import (
+from augury.analytics.moments import (
     jarque_bera_test,
     moment_ratio_test,
     rolling_kurtosis,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.strategy.allocation import MeanCVaROptimizer, RiskParityAllocator
+from augury.strategy.allocation import MeanCVaROptimizer, RiskParityAllocator
 
 
 @pytest.fixture()

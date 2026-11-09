@@ -30,7 +30,7 @@ import pandas as pd
 import yfinance as yf
 from scipy import stats
 
-from synthquant.forecasters import GJRGarchForecaster
+from augury.forecasters import GJRGarchForecaster
 
 warnings.filterwarnings("ignore")
 

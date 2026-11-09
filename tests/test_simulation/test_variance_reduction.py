@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.variance_reduction import (
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.variance_reduction import (
     antithetic_variates,
     control_variates,
     importance_sampling,

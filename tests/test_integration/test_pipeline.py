@@ -10,19 +10,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.analytics.risk_metrics import (
+from augury.analytics.risk_metrics import (
     conditional_var,
     max_drawdown_distribution,
     value_at_risk,
 )
-from synthquant.data.features import FeatureEngine
-from synthquant.regime.hmm import HMMRegimeDetector
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
-from synthquant.strategy.allocation import RiskParityAllocator
-from synthquant.strategy.backtest import WalkForwardBacktest
-from synthquant.strategy.signals import RegimeSignalGenerator
-from synthquant.strategy.sizing import KellyCriterion, RiskParitySizer
+from augury.data.features import FeatureEngine
+from augury.regime.hmm import HMMRegimeDetector
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.regime_switching import RegimeSwitchingEngine
+from augury.strategy.allocation import RiskParityAllocator
+from augury.strategy.backtest import WalkForwardBacktest
+from augury.strategy.signals import RegimeSignalGenerator
+from augury.strategy.sizing import KellyCriterion, RiskParitySizer
 
 # ── Shared synthetic data ─────────────────────────────────────────────────────
 
