@@ -32,13 +32,10 @@ class ForecastScorer:
         Returns:
             Mean CRPS over all observations.
         """
-        F = np.asarray(forecasts, dtype=float)
-        y = np.asarray(observations, dtype=float)
+        from synthquant.evaluation.metrics import crps_ensemble
 
-        # CRPS = E[|X - y|] - 0.5 * E[|X - X'|]
-        mae = np.mean(np.abs(F - y[:, np.newaxis]), axis=1)
-        spread = np.mean(np.abs(F[:, :, np.newaxis] - F[:, np.newaxis, :]), axis=(1, 2)) / 2
-        crps_vals = mae - spread
+        # CRPS = E[|X - y|] - 0.5 * E[|X - X'|], via the O(n log n) sorted form
+        crps_vals = crps_ensemble(np.asarray(forecasts, dtype=float), observations)
         result = float(np.mean(crps_vals))
         logger.debug(f"CRPS = {result:.6f}")
         return result
