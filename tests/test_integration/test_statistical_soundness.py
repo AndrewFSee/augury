@@ -11,14 +11,14 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.analytics.distributions import EmpiricalDistribution
-from synthquant.analytics.moments import jarque_bera_test, moment_ratio_test
-from synthquant.analytics.risk_metrics import value_at_risk
-from synthquant.analytics.scoring import ForecastScorer
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.engines.heston import HestonEngine
-from synthquant.simulation.engines.merton_jd import MertonJDEngine
-from synthquant.simulation.variance_reduction import antithetic_variates
+from augury.analytics.distributions import EmpiricalDistribution
+from augury.analytics.moments import jarque_bera_test, moment_ratio_test
+from augury.analytics.risk_metrics import value_at_risk
+from augury.analytics.scoring import ForecastScorer
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.heston import HestonEngine
+from augury.simulation.engines.merton_jd import MertonJDEngine
+from augury.simulation.variance_reduction import antithetic_variates
 
 # ── GBM statistical properties ────────────────────────────────────────────────
 

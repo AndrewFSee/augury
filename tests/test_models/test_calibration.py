@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from synthquant.models.calibration import (
+from augury.models.calibration import (
     BayesianCalibrator,
     CalibratedParams,
     Calibrator,

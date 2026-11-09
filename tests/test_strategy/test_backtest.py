@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.strategy.backtest import BacktestResults, WalkForwardBacktest
+from augury.strategy.backtest import BacktestResults, WalkForwardBacktest
 
 
 @pytest.fixture()

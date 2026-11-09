@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.analytics.options import ImpliedVolSurface, MCOptionPricer, _bs_call
-from synthquant.simulation.engines.gbm import GBMEngine
+from augury.analytics.options import ImpliedVolSurface, MCOptionPricer, _bs_call
+from augury.simulation.engines.gbm import GBMEngine
 
 
 @pytest.fixture()

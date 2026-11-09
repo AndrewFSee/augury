@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Run multiple simulation engines and compare terminal distributions."""
-    from synthquant.simulation.engines.gbm import GBMEngine
-    from synthquant.simulation.engines.heston import HestonEngine
-    from synthquant.simulation.engines.merton_jd import MertonJDEngine
-    from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
-    from synthquant.simulation.variance_reduction import antithetic_variates
+    from augury.simulation.engines.gbm import GBMEngine
+    from augury.simulation.engines.heston import HestonEngine
+    from augury.simulation.engines.merton_jd import MertonJDEngine
+    from augury.simulation.engines.regime_switching import RegimeSwitchingEngine
+    from augury.simulation.variance_reduction import antithetic_variates
 
     logger.info("=== Example 04: Monte Carlo Simulation ===")
 

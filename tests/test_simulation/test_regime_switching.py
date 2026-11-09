@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.simulation.engines.regime_switching import RegimeSwitchingEngine
+from augury.simulation.engines.regime_switching import RegimeSwitchingEngine
 
 
 @pytest.fixture()

@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for all SynthQuant tests."""
+"""Shared pytest fixtures for all Augury tests."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.gbm import GBMEngine
 
 
 @pytest.fixture()

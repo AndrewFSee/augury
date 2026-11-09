@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.regime.hmm import HMMRegimeDetector
+from augury.regime.hmm import HMMRegimeDetector
 
 
 @pytest.fixture

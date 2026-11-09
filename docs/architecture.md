@@ -1,20 +1,20 @@
-# SynthQuant Architecture
+# Augury Architecture
 
 ## Overview
 
-SynthQuant is structured as a layered pipeline: raw market data flows upward through regime detection and model calibration into Monte Carlo simulation, then into analytics and strategy components.
+Augury is structured as a layered pipeline: raw market data flows upward through regime detection and model calibration into Monte Carlo simulation, then into analytics and strategy components. The forecasting entry point, `forecast_prices`, sits on the `forecasters` package (GJR-GARCH skew-t by default), and every forecaster is scored with the walk-forward harness in `evaluation`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        SynthQuant Engine                        │
+│                        Augury                        │
 ├──────────────┬──────────────┬───────────────┬───────────────────┤
 │  Data Layer  │ Regime Layer │  Model Layer  │ Simulation Layer  │
 │              │              │               │                   │
 │ • Ingest     │ • HMM        │ • GARCH       │ • GBM Engine      │
 │ • Features   │ • MS-GARCH   │ • Heston      │ • Heston Engine   │
 │ • Storage    │ • Clustering │ • Merton JD   │ • Merton JD Eng.  │
-│   (Parquet)  │ • Ensemble   │ • Rough Vol   │ • Regime Switch.  │
-│              │              │ • Calibration │ • Rough Bergomi   │
+│   (Parquet)  │ • Ensemble   │ • HAR-RV      │ • Regime Switch.  │
+│              │              │ • Calibration │                   │
 │              │              │               │ • Variance Reduc. │
 │              │              │               │ • Copula Sim.     │
 │              │              │               │ • GPU Engine      │
@@ -38,7 +38,7 @@ SynthQuant is structured as a layered pipeline: raw market data flows upward thr
 
 ## Module Descriptions
 
-### `synthquant.data`
+### `augury.data`
 
 The data layer handles all market data ingestion, feature engineering, and local storage.
 
@@ -48,7 +48,7 @@ The data layer handles all market data ingestion, feature engineering, and local
 - **`FeatureEngine`**: Computes realized volatility (close-to-close, Parkinson, Garman-Klass, Yang-Zhang), RSI, MACD, Bollinger Bands, and rolling higher moments.
 - **`ParquetStorage`**: Persists DataFrames to local Parquet files with symbol/date partitioning.
 
-### `synthquant.regime`
+### `augury.regime`
 
 Regime detection algorithms identify distinct market states (e.g., bull/bear, low/high volatility).
 
@@ -57,7 +57,7 @@ Regime detection algorithms identify distinct market states (e.g., bull/bear, lo
 - **`ClusteringRegimeDetector`**: Uses `sklearn.mixture.GaussianMixture` on feature vectors.
 - **`EnsembleRegimeDetector`**: Combines multiple detectors via majority voting or probability averaging.
 
-### `synthquant.models`
+### `augury.models`
 
 Parametric stochastic models for volatility and returns.
 
@@ -65,11 +65,10 @@ Parametric stochastic models for volatility and returns.
 - **`HestonModel`**: Stochastic volatility with mean-reverting variance (Euler-Maruyama simulation).
 - **`MertonJumpDiffusion`**: GBM plus compound Poisson jumps; includes closed-form European option pricing.
 - **`KouModel`**: Double-exponential jump distribution variant.
-- **`RoughBergomi`**: Fractional Brownian motion-driven volatility with Hurst exponent H < 0.5.
 - **`MLECalibrator`**: Fits model parameters via `scipy.optimize`.
 - **`BayesianCalibrator`**: Fits parameters via PyMC posterior sampling (optional dependency).
 
-### `synthquant.simulation`
+### `augury.simulation`
 
 Monte Carlo engines and tools for path generation.
 
@@ -78,12 +77,11 @@ Monte Carlo engines and tools for path generation.
 - **`MertonJDEngine`**: GBM + Poisson jumps.
 - **`HestonEngine`**: QE scheme for stochastic variance.
 - **`RegimeSwitchingEngine`**: Markov chain over a dict of per-regime parameter sets.
-- **`RoughBergomiEngine`**: Hybrid scheme for fractional Brownian motion.
 - **`CopulaSimulator`**: Multi-asset copula sampling (Gaussian, Student-t, Clayton).
 - **`GPUEngine`**: JAX-accelerated wrapper with NumPy fallback.
 - **Variance reduction**: `antithetic_variates`, `control_variates`, `stratified_sampling`, `importance_sampling`.
 
-### `synthquant.analytics`
+### `augury.analytics`
 
 Downstream risk and forecast analytics on simulated path arrays.
 
@@ -94,7 +92,7 @@ Downstream risk and forecast analytics on simulated path arrays.
 - **`EmpiricalDistribution`**: KDE-smoothed CDF/PDF/quantile estimation.
 - **`ForecastScorer`**: CRPS, PIT histogram, Brier score, coverage test, KS test.
 
-### `synthquant.strategy`
+### `augury.strategy`
 
 Portfolio construction and trade execution utilities.
 
@@ -107,7 +105,7 @@ Portfolio construction and trade execution utilities.
 - **`RiskParityAllocator`**: Covariance-based risk parity.
 - **`WalkForwardBacktest`**: Expanding/rolling window backtesting with Sharpe, Sortino, Calmar metrics.
 
-### `synthquant.api`
+### `augury.api`
 
 Optional FastAPI server exposing all core functionality as REST and WebSocket endpoints.
 
@@ -143,7 +141,7 @@ Model Calibration (MLE / Bayesian)
     ├──► Calibrated Parameters per Regime
     │
     ▼
-SimulationEngine (GBM / Heston / Merton / Regime-Switching / Rough Bergomi)
+SimulationEngine (GBM / Heston / Merton / Regime-Switching)
     │
     ├──► Paths: (n_paths, n_steps+1)
     │

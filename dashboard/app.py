@@ -1,4 +1,4 @@
-"""SynthQuant Streamlit Dashboard."""
+"""Augury Streamlit Dashboard."""
 
 from __future__ import annotations
 
@@ -10,32 +10,32 @@ try:
 except ImportError as e:
     raise ImportError(
         "Streamlit is required for the dashboard. "
-        "Install with: pip install synthquant[dashboard]"
+        "Install with: pip install augury[dashboard]"
     ) from e
 
+from augury.analytics.risk_metrics import (
+    conditional_var,
+    max_drawdown_distribution,
+    value_at_risk,
+)
+from augury.regime.hmm import HMMRegimeDetector
+from augury.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.heston import HestonEngine
 from dashboard.plots import (
     plot_drawdown_distribution,
     plot_fan_chart,
     plot_regime_timeline,
 )
-from synthquant.analytics.risk_metrics import (
-    conditional_var,
-    max_drawdown_distribution,
-    value_at_risk,
-)
-from synthquant.regime.hmm import HMMRegimeDetector
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.simulation.engines.heston import HestonEngine
 
 
 def main() -> None:
     """Entry point for the Streamlit dashboard."""
     st.set_page_config(
-        page_title="SynthQuant Dashboard",
+        page_title="Augury Dashboard",
         page_icon="📈",
         layout="wide",
     )
-    st.title("📈 SynthQuant Engine — Interactive Dashboard")
+    st.title("📈 Augury — Interactive Dashboard")
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with st.sidebar:

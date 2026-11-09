@@ -18,7 +18,6 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
-from scipy import stats as sp_stats
 
 warnings.filterwarnings("ignore")
 
@@ -47,8 +46,8 @@ N_T_SAMPLES = 10_000
 
 from arch.univariate.distribution import SkewStudent as _ArchSkewT  # noqa: E402
 
-from synthquant.data.ingest import DataIngestor  # noqa: E402
-from synthquant.models.garch import GARCHModel  # noqa: E402
+from augury.data.ingest import DataIngestor  # noqa: E402
+from augury.models.garch import GARCHModel  # noqa: E402
 
 _skt = _ArchSkewT()
 
@@ -377,7 +376,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
           f"calm50={best_iv['c50']:.1%}")
 
     # Print full grid
-    print(f"\n  Full grid:")
+    print("\n  Full grid:")
     print(f"  {'GARCH_w':>8s}  {'TLT_dur':>8s}  {'CRPS':>8s}  {'Stressed50':>11s}  {'Calm50':>8s}")
     for gw, dur in product(iv_garch_weights, tlt_durations):
         def _vfn(w, _gw=gw, _dur=dur):

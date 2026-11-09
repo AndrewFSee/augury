@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.simulation.correlation import CopulaSimulator
+from augury.simulation.correlation import CopulaSimulator
 
 
 @pytest.fixture()

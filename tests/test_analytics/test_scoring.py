@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.analytics.scoring import ForecastScorer
+from augury.analytics.scoring import ForecastScorer
 
 
 @pytest.fixture()

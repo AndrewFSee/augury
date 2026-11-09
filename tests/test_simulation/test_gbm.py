@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from synthquant.simulation.engines.gbm import GBMEngine
+from augury.simulation.engines.gbm import GBMEngine
 
 
 def test_simulate_returns_correct_shape() -> None:

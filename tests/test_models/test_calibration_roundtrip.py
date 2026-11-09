@@ -10,9 +10,9 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats
 
-from synthquant.models.calibration import MLECalibrator
-from synthquant.models.garch import GARCHModel
-from synthquant.models.stochastic_vol import HestonModel
+from augury.models.calibration import MLECalibrator
+from augury.models.garch import GARCHModel
+from augury.models.stochastic_vol import HestonModel
 
 # ===========================================================================
 # GARCH Calibration Round-Trip

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.data.features import FeatureEngine
+from augury.data.features import FeatureEngine
 
 
 @pytest.fixture()

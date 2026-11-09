@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from synthquant.api.schemas import (
+from augury.api.schemas import (
     ForecastResponse,
     HealthResponse,
     RegimeResponse,

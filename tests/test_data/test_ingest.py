@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synthquant.data.ingest import DataIngestor, DataSource, YFinanceSource
+from augury.data.ingest import DataIngestor, DataSource, YFinanceSource
 
 
 class ConcreteSource(DataSource):
@@ -135,7 +135,7 @@ def _make_yf_dataframe(tz: str | None = "America/New_York") -> pd.DataFrame:
     )
 
 
-@patch("synthquant.data.ingest.yf", create=True)
+@patch("augury.data.ingest.yf", create=True)
 def test_yfinance_fetch_returns_ohlcv(mock_yf: MagicMock) -> None:
     """YFinanceSource.fetch returns normalized OHLCV DataFrame."""
     # We patch at the import location inside the fetch method

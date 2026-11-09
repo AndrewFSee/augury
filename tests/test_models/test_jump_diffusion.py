@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.models.jump_diffusion import KouModel, MertonJumpDiffusion
+from augury.models.jump_diffusion import KouModel, MertonJumpDiffusion
 
 # ─── Merton Jump-Diffusion ────────────────────────────────────────────
 

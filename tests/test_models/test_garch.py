@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.models.garch import GARCHModel
+from augury.models.garch import GARCHModel
 
 
 @pytest.fixture()

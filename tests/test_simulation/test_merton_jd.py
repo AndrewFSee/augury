@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from synthquant.simulation.engines.merton_jd import MertonJDEngine
+from augury.simulation.engines.merton_jd import MertonJDEngine
 
 
 def test_simulate_returns_correct_shape() -> None:
@@ -57,7 +57,7 @@ def test_higher_jump_intensity_increases_dispersion() -> None:
 
 def test_zero_jump_intensity_resembles_gbm() -> None:
     """With lambda_j=0, Merton JD reduces to GBM (same log return distribution)."""
-    from synthquant.simulation.engines.gbm import GBMEngine
+    from augury.simulation.engines.gbm import GBMEngine
 
     n_paths = 5000
     n_steps = 21

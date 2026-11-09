@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.analytics.distributions import EmpiricalDistribution
-from synthquant.simulation.engines.gbm import GBMEngine
+from augury.analytics.distributions import EmpiricalDistribution
+from augury.simulation.engines.gbm import GBMEngine
 
 
 @pytest.fixture()

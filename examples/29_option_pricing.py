@@ -24,13 +24,14 @@ Use case:
 """
 
 import time
+
 import numpy as np
 import yfinance as yf
-from scipy.stats import norm
 from arch import arch_model
+from scipy.stats import norm
 
-from synthquant.analytics.options import MCOptionPricer, ImpliedVolSurface, _bs_call
-from synthquant.simulation.engines.heston import HestonEngine
+from augury.analytics.options import ImpliedVolSurface, MCOptionPricer, _bs_call
+from augury.simulation.engines.heston import HestonEngine
 
 # ── Configuration ────────────────────────────────────────────────────
 TICKER = "SPY"
@@ -96,10 +97,10 @@ persistence = alpha + 0.5 * gamma + beta
 v0 = h_last / SCALE ** 2 * 252                  # annualised variance
 theta_h = (omega / (1 - persistence)) / SCALE ** 2 * 252
 kappa_h = (1 - persistence) * 252
-sigma_v_h = alpha * np.sqrt(2) * np.sqrt(252)
+sigma_v_h = (alpha + 0.5 * gamma) * np.sqrt(2) * np.sqrt(252)  # effective ARCH term
 rho_h = -0.70  # typical equity leverage
 
-log(f"\n  Heston parameters (from GARCH mapping):")
+log("\n  Heston parameters (from GARCH mapping):")
 log(f"    v0={v0:.4f}  theta={theta_h:.4f}  kappa={kappa_h:.2f}  "
     f"sigma_v={sigma_v_h:.2f}  rho={rho_h:.2f}")
 
@@ -112,17 +113,26 @@ iv_calc = ImpliedVolSurface()
 log(f"\n  Simulating {N_PATHS:,} GJR-GARCH paths ({max_steps} steps)...")
 t_sim = time.time()
 
-# Simulate using the fitted GARCH model (includes skewt innovations)
-garch_log_rets = np.empty((N_PATHS, max_steps))
-for i in range(N_PATHS):
-    sim = res.model.simulate(res.params, nobs=max_steps)
-    garch_log_rets[i] = sim["data"].values / SCALE
+# Simulate forward from TODAY's conditional variance (res.forecast with
+# method="simulation" starts at the end of the sample; res.model.simulate
+# would start from the unconditional variance after a burn-in). Uses the
+# fitted skew-t innovations.
+_dist = res.model.distribution
+_dist_params = np.asarray(res.params)[-_dist.num_params:]
+_rng = type(_dist)(seed=np.random.default_rng(42)).simulate(_dist_params)
+_fc = res.forecast(horizon=max_steps, method="simulation", simulations=N_PATHS,
+                   rng=_rng, reindex=False)
+# Remove the fitted (real-world) mean: option pricing needs risk-neutral drift.
+garch_log_rets = (_fc.simulations.values[-1] - mu) / SCALE
 
-# Convert to price paths
 garch_price_paths = np.hstack([
     np.full((N_PATHS, 1), S0),
     S0 * np.exp(np.cumsum(garch_log_rets, axis=1))
 ])
+# Empirical martingale correction (Duan & Simonato, 1998): rescale each date
+# so the discounted price is a martingale, E[S_t] = S0 * exp(r t).
+_t = np.arange(max_steps + 1) / 252.0
+garch_price_paths *= (S0 * np.exp(R * _t) / garch_price_paths.mean(axis=0))[None, :]
 log(f"    GARCH simulation: {time.time()-t_sim:.1f}s")
 
 # --- Heston paths ---
@@ -152,18 +162,28 @@ mc_prices = {
 log(f"\n  Pricing European calls across {n_strikes} strikes × "
     f"{n_mats} maturities...")
 
+# Black-Scholes baseline: flat vol matched to the GARCH model's own expected
+# variance at each maturity. GARCH - BS differences then isolate the smile
+# and skew, rather than comparing today's GARCH vol with a trailing average.
+bs_vol = {
+    T_days: float(np.std(np.log(garch_price_paths[:, T_days] / S0)) / np.sqrt(T_days / 252.0))
+    for T_days in MATURITIES_DAYS
+}
+log("  BS baseline vol (matched to GARCH horizon variance): "
+    + ", ".join(f"{d}d={v:.1%}" for d, v in bs_vol.items()))
+
 for mi, T_days in enumerate(MATURITIES_DAYS):
     T = T_days / 252.0
     # Slice paths to this maturity
-    garch_paths_T = garch_price_paths[:, :T_days + 1]
-    heston_paths_T = heston_price_paths[:, :T_days + 1]
+    garch_terminal = garch_price_paths[:, :T_days + 1]
+    heston_terminal = heston_price_paths[:, :T_days + 1]
 
     for si, K in enumerate(strikes):
         mc_prices["GARCH"][mi, si] = pricer.price_european(
-            garch_paths_T, K, T, R, "call")
+            garch_terminal, K, T, R, "call")
         mc_prices["Heston"][mi, si] = pricer.price_european(
-            heston_paths_T, K, T, R, "call")
-        mc_prices["BS"][mi, si] = _bs_call(S0, K, T, R, trailing_vol)
+            heston_terminal, K, T, R, "call")
+        mc_prices["BS"][mi, si] = _bs_call(S0, K, T, R, bs_vol[T_days])
 
 # ── Extract implied volatilities ─────────────────────────────────────
 log("\n  Extracting implied vol surface...")
@@ -280,12 +300,13 @@ greeks_garch = pricer.compute_greeks(garch_paths_3m, K_atm, T_greeks, R,
 greeks_heston = pricer.compute_greeks(heston_paths_3m, K_atm, T_greeks, R,
                                        bump_size=0.01, option_type="call")
 
-# BS Greeks (analytical)
-d1 = (np.log(S0 / K_atm) + (R + 0.5 * trailing_vol**2) * T_greeks) / (
-    trailing_vol * np.sqrt(T_greeks))
-d2 = d1 - trailing_vol * np.sqrt(T_greeks)
+# BS Greeks (analytical), at the GARCH-matched 63-day vol
+sig_g = bs_vol.get(63, trailing_vol)
+d1 = (np.log(S0 / K_atm) + (R + 0.5 * sig_g**2) * T_greeks) / (
+    sig_g * np.sqrt(T_greeks))
+d2 = d1 - sig_g * np.sqrt(T_greeks)
 bs_delta = float(norm.cdf(d1))
-bs_gamma = float(norm.pdf(d1) / (S0 * trailing_vol * np.sqrt(T_greeks)))
+bs_gamma = float(norm.pdf(d1) / (S0 * sig_g * np.sqrt(T_greeks)))
 bs_vega = float(S0 * norm.pdf(d1) * np.sqrt(T_greeks))
 
 log(f"  {'':>12s} {'BS':>10s} {'GARCH':>10s} {'Heston':>10s}")
@@ -371,5 +392,5 @@ log(f"  Total runtime: {total:.0f}s")
 
 with open("_option_pricing_output.txt", "w", encoding="utf-8") as f:
     f.write("\n".join(output_lines))
-log(f"  Output saved to _option_pricing_output.txt")
+log("  Output saved to _option_pricing_output.txt")
 log("=" * 80)

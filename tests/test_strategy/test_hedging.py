@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.strategy.hedging import DeltaHedger, GammaHedger
+from augury.simulation.engines.gbm import GBMEngine
+from augury.strategy.hedging import DeltaHedger, GammaHedger
 
 
 @pytest.fixture()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from synthquant.regime.hmm import HMMRegimeDetector
+from augury.regime.hmm import HMMRegimeDetector
 
 
 @pytest.fixture()
@@ -270,14 +270,14 @@ class TestBuildHmmFeatures:
     """Tests for the feature builder function."""
 
     def test_output_shape(self, sample_returns: np.ndarray) -> None:
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         features = build_hmm_features(sample_returns)
         assert features.shape == (len(sample_returns), 3)
 
     def test_z_scored(self, sample_returns: np.ndarray) -> None:
         """Each column should be approximately zero-mean, unit-variance."""
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         features = build_hmm_features(sample_returns)
         for col in range(3):
@@ -285,14 +285,14 @@ class TestBuildHmmFeatures:
             assert abs(np.std(features[:, col]) - 1.0) < 0.01
 
     def test_no_nans(self, sample_returns: np.ndarray) -> None:
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         features = build_hmm_features(sample_returns)
         assert not np.any(np.isnan(features))
 
     def test_crash_vs_recovery_asymmetry(self) -> None:
         """Signed vol should be negative during crash, positive during recovery."""
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         rng = np.random.default_rng(42)
         # Crash: 50 days of large negative returns
@@ -312,7 +312,7 @@ class TestBuildHmmFeatures:
 
     def test_custom_feature_names(self, sample_returns: np.ndarray) -> None:
         """Can select specific features via feature_names."""
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         feats = build_hmm_features(
             sample_returns,
@@ -323,7 +323,7 @@ class TestBuildHmmFeatures:
 
     def test_all_features_no_nans(self, sample_returns: np.ndarray) -> None:
         """Every registered feature produces no NaNs."""
-        from synthquant.regime.features import ALL_FEATURE_NAMES, build_hmm_features
+        from augury.regime.features import ALL_FEATURE_NAMES, build_hmm_features
 
         feats = build_hmm_features(
             sample_returns,
@@ -333,13 +333,13 @@ class TestBuildHmmFeatures:
         assert not np.any(np.isnan(feats))
 
     def test_unknown_feature_raises(self, sample_returns: np.ndarray) -> None:
-        from synthquant.regime.features import build_hmm_features
+        from augury.regime.features import build_hmm_features
 
         with pytest.raises(ValueError, match="Unknown feature"):
             build_hmm_features(sample_returns, feature_names=["bogus"])
 
     def test_feature_registry_completeness(self) -> None:
-        from synthquant.regime.features import (
+        from augury.regime.features import (
             ALL_FEATURE_NAMES,
             FEATURE_REGISTRY,
         )

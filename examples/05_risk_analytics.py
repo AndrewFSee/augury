@@ -12,18 +12,18 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Demonstrate risk analytics using simulated GBM paths."""
-    from synthquant.analytics.distributions import EmpiricalDistribution
-    from synthquant.analytics.moments import jarque_bera_test, moment_ratio_test
-    from synthquant.analytics.options import MCOptionPricer
-    from synthquant.analytics.risk_metrics import (
+    from augury.analytics.distributions import EmpiricalDistribution
+    from augury.analytics.moments import jarque_bera_test, moment_ratio_test
+    from augury.analytics.options import MCOptionPricer
+    from augury.analytics.risk_metrics import (
         conditional_var,
         expected_shortfall,
         max_drawdown_distribution,
         tail_ratio,
         value_at_risk,
     )
-    from synthquant.analytics.scoring import ForecastScorer
-    from synthquant.simulation.engines.gbm import GBMEngine
+    from augury.analytics.scoring import ForecastScorer
+    from augury.simulation.engines.gbm import GBMEngine
 
     logger.info("=== Example 05: Risk Analytics ===")
 

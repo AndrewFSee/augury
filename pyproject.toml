@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "synthquant"
-version = "0.1.0"
-description = "Production-grade synthetic financial data generation & probabilistic forecasting platform"
+name = "augury"
+version = "0.2.0"
+description = "Probabilistic forecasting of financial returns: price bands, VaR and tail risk, judged out of sample"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Andrew See" }]
-keywords = ["quantitative finance", "monte carlo", "regime detection", "stochastic volatility", "synthetic data"]
+keywords = ["quantitative finance", "probabilistic forecasting", "garch", "value at risk", "monte carlo", "volatility"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Financial and Insurance Industry",
@@ -28,6 +28,7 @@ dependencies = [
     "scipy>=1.10",
     "pandas>=2.0",
     "polars>=0.19",
+    "pyarrow>=14",  # Parquet engine used by augury.data.storage
     "arch>=6.0",
     "hmmlearn>=0.3",
     "statsmodels>=0.14",
@@ -42,6 +43,7 @@ gpu = ["jax[cuda12_pip]>=0.4", "cupy-cuda12x>=12.0"]
 api = ["fastapi>=0.104", "uvicorn[standard]>=0.24", "websockets>=12.0"]
 dashboard = ["streamlit>=1.28", "plotly>=5.17"]
 data = ["yfinance>=0.2", "requests>=2.31"]
+plot = ["matplotlib>=3.7"]
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
@@ -51,23 +53,26 @@ dev = [
     "pre-commit>=3.5",
     "pandas-stubs>=2.0",
     "types-requests>=2.31",
+    "httpx>=0.27",  # required by starlette/fastapi TestClient
 ]
 all = [
-    "synthquant[bayesian]",
-    "synthquant[api]",
-    "synthquant[dashboard]",
-    "synthquant[data]",
+    "augury[bayesian]",
+    "augury[api]",
+    "augury[dashboard]",
+    "augury[data]",
+    "augury[plot]",
 ]
 
 [project.urls]
-Homepage = "https://github.com/AndrewFSee/synthquant"
-Repository = "https://github.com/AndrewFSee/synthquant"
-Documentation = "https://github.com/AndrewFSee/synthquant/tree/main/docs"
-"Bug Tracker" = "https://github.com/AndrewFSee/synthquant/issues"
+Homepage = "https://github.com/AndrewFSee/augury"
+Repository = "https://github.com/AndrewFSee/augury"
+Documentation = "https://github.com/AndrewFSee/augury/tree/main/docs"
+"Bug Tracker" = "https://github.com/AndrewFSee/augury/issues"
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = ["archive"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "C4", "SIM"]
@@ -81,7 +86,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN"]
-"examples/*" = ["ANN", "T201"]
+# Scripts set up sys.path / warning filters before imports and print wide tables.
+"examples/*" = ["ANN", "T201", "E402", "E501"]
+"scripts/*" = ["ANN", "T201", "E402", "E501"]
+"dashboard/*" = ["E501"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -91,19 +99,19 @@ warn_return_any = false
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = "synthquant.data.features"
+module = "augury.data.features"
 disable_error_code = ["return-value", "attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=synthquant --cov-report=term-missing --cov-report=xml -v"
+addopts = "--cov=augury --cov-report=term-missing --cov-report=xml -v"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks integration tests requiring external services",
 ]
 
 [tool.coverage.run]
-source = ["synthquant"]
+source = ["augury"]
 omit = ["tests/*", "examples/*"]
 
 [tool.coverage.report]

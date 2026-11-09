@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
+from scipy import stats
 
-from synthquant.simulation.engines.heston import HestonEngine
+from augury.simulation.engines.heston import HestonEngine
 
 
 def test_simulate_returns_correct_shape() -> None:
@@ -45,14 +47,39 @@ def test_different_seeds_produce_different_paths() -> None:
     assert not np.array_equal(paths1, paths2)
 
 
-def test_higher_vol_of_vol_increases_spread() -> None:
-    """Higher sigma_v leads to wider spread of terminal prices."""
-    engine = HestonEngine()
-    paths_low = engine.simulate(2000, 21, 1 / 252, sigma_v=0.1, random_state=0)
-    paths_high = engine.simulate(2000, 21, 1 / 252, sigma_v=1.0, random_state=0)
-    spread_low = np.std(paths_low[:, -1])
-    spread_high = np.std(paths_high[:, -1])
-    assert spread_high > spread_low
+def _terminal_log_returns(**kwargs: float) -> np.ndarray:
+    paths = HestonEngine().simulate(
+        n_paths=40_000, n_steps=21, dt=1 / 252, random_state=0, **kwargs
+    )
+    return np.log(paths[:, -1] / paths[:, 0])
+
+
+def test_higher_vol_of_vol_fattens_tails_not_variance() -> None:
+    """Vol-of-vol raises kurtosis; with v0 = theta, E[integrated var] is unchanged."""
+    r_low = _terminal_log_returns(sigma_v=0.1)
+    r_high = _terminal_log_returns(sigma_v=1.0)
+    assert stats.kurtosis(r_high) > stats.kurtosis(r_low) + 1.0
+    assert abs(np.std(r_high) / np.std(r_low) - 1.0) < 0.05
+
+
+@pytest.mark.parametrize("sigma_v", [0.05, 0.3, 1.0])
+def test_moments_match_theory(sigma_v: float) -> None:
+    """Var[log S_T] = theta*T and E[log S_T] = (mu - theta/2)*T when v0 = theta."""
+    mu, theta, T = 0.05, 0.04, 21 / 252
+    r = _terminal_log_returns(mu=mu, theta=theta, v0=theta, sigma_v=sigma_v)
+    assert np.std(r) == pytest.approx(np.sqrt(theta * T), rel=0.03)
+    assert np.mean(r) == pytest.approx((mu - 0.5 * theta) * T, abs=0.0015)
+
+
+def test_rho_controls_skew() -> None:
+    """The leverage correlation must reach the price process (regression test)."""
+    kw = {"sigma_v": 0.6, "mu": 0.0}
+    skew_neg = stats.skew(_terminal_log_returns(rho=-0.9, **kw))
+    skew_zero = stats.skew(_terminal_log_returns(rho=0.0, **kw))
+    skew_pos = stats.skew(_terminal_log_returns(rho=0.9, **kw))
+    assert skew_neg < -0.5
+    assert abs(skew_zero) < 0.2
+    assert skew_pos > 0.5
 
 
 def test_variance_stays_non_negative() -> None:
@@ -85,3 +112,13 @@ def test_mean_reversion_of_variance() -> None:
         random_state=99,
     )
     assert paths.shape == (n_paths, 253)
+
+
+def test_zero_vol_of_vol_is_deterministic_variance() -> None:
+    """sigma_v = 0 must not produce NaNs; log-return variance = integrated V."""
+    v0, theta, kappa, T = 0.09, 0.04, 3.0, 21 / 252
+    with np.errstate(all="raise"):
+        r = _terminal_log_returns(v0=v0, theta=theta, kappa=kappa, sigma_v=0.0)
+    integrated = theta * T + (v0 - theta) * (1 - np.exp(-kappa * T)) / kappa
+    assert np.all(np.isfinite(r))
+    assert np.var(r) == pytest.approx(integrated, rel=0.05)
