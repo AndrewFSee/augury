@@ -111,3 +111,16 @@ def test_array_input_and_validation():
         forecast_prices(p[:50])
     with pytest.raises(ValueError):
         forecast_prices(p, horizon=0)
+
+
+def test_annual_drift_shifts_log_returns(prices):
+    base = forecast_prices(prices, horizon=21, n_samples=2000, random_state=3)
+    tilted = forecast_prices(prices, horizon=21, n_samples=2000, random_state=3, annual_drift=0.252)
+    shift = np.log(tilted.prices / base.prices)
+    np.testing.assert_allclose(shift, np.broadcast_to(0.001 * np.arange(1, 22), shift.shape))
+    assert tilted.prob_above(tilted.last_price, 21) > base.prob_above(base.last_price, 21)
+    crypto = forecast_prices(
+        prices, horizon=5, n_samples=200, random_state=3, annual_drift=0.365, periods_per_year=365
+    )
+    ref = forecast_prices(prices, horizon=5, n_samples=200, random_state=3)
+    np.testing.assert_allclose(np.log(crypto.prices / ref.prices)[:, 0], 0.001)

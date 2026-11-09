@@ -33,9 +33,16 @@ def default_forecaster() -> ReturnForecaster:
     so the mean stays at zero; fitting on 4 or 6 years instead of 2 changed
     CRPS by less than 0.3% on average, so ``DEFAULT_LOOKBACK`` stays at 504.
 
-    Known limitation: at 21 days the left tail is too heavy (SPY 1% VaR was
-    breached 0.35% of the time, 5% VaR 2.4%), because skew-t shocks compound
-    through the leverage term. One-day VaR is well calibrated.
+    Calibration notes (2012-2026 walk-forward, five ETFs): one-day forecasts
+    are well calibrated. At 21 days the zero mean makes equity forecasts sit
+    left of outcomes during a bull market (SPY 5% VaR breached 2.4% of the
+    time), which looks like a too-heavy left tail. It is drift, not shape:
+    adding each asset's realised drift balances the 5% tails (4.0% / 3.9%),
+    while removing the model's negative skew makes CRPS clearly worse
+    (realised SPY 21-day skew is -1.0). Variance level and mean-reversion
+    speed were also checked and are not the cause. If you hold a drift view
+    (e.g. an equity risk premium), pass it explicitly via
+    ``forecast_prices(..., annual_drift=...)``.
     """
     return GJRGarchForecaster(dist="skewt", mean="zero")
 
@@ -132,6 +139,8 @@ def forecast_prices(
     lookback: int = DEFAULT_LOOKBACK,
     n_samples: int = 10_000,
     freq: str = "B",
+    annual_drift: float = 0.0,
+    periods_per_year: int = 252,
     random_state: int | np.random.Generator | None = None,
 ) -> PriceForecast:
     """Fit a forecaster to recent prices and forecast the next ``horizon`` periods.
@@ -153,6 +162,14 @@ def forecast_prices(
         n_samples: Number of simulated outcomes.
         freq: Pandas frequency for forecast dates (``"B"`` business days for
             equities, ``"D"`` for 24/7 markets such as crypto).
+        annual_drift: Assumed annual drift of the *log* price, added on top of
+            the model's forecast (``annual_drift * h / periods_per_year`` at
+            horizon ``h``). The default 0 makes no directional call; set it to
+            express a view such as an equity risk premium (e.g. 0.05). It is
+            deliberately not estimated: trailing means were tested out of
+            sample and helped only assets that happened to trend.
+        periods_per_year: Periods per year for ``annual_drift`` (252 for
+            equities, 365 for 24/7 markets).
         random_state: Seed or Generator.
 
     Returns:
@@ -179,6 +196,10 @@ def forecast_prices(
     fc = model.predict(
         returns, range(1, horizon + 1), n_samples=n_samples, random_state=random_state
     )
+    if annual_drift:
+        steps = np.arange(1, horizon + 1, dtype=float)
+        shift = annual_drift / periods_per_year * steps
+        fc = ReturnForecast(fc.horizons, fc.samples + shift[np.newaxis, :])
     dates = None
     if as_of is not None:
         step = pd.tseries.frequencies.to_offset(freq)

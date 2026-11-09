@@ -340,6 +340,10 @@ fc.summary()        # price bands, 95% VaR / ES and P(up) at 1, 5, 10, 21 days
 fc.bands()          # daily price quantiles (5/25/50/75/95%) for a fan chart
 fc.value_at_risk(0.01, horizon=5)   # 5-day 99% VaR as a simple return
 fc.prob_above(750, horizon=21)      # probability SPY closes above $750 in 21 days
+
+# The default makes no directional call (zero drift). To express a view,
+# e.g. a 5% equity risk premium, pass it explicitly:
+fc = forecast_prices(close, horizon=21, annual_drift=0.05)
 ```
 
 **Why this default?** Every model in the library was scored out of sample with the
