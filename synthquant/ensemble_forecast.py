@@ -98,6 +98,12 @@ class CalibratedRegimeParams:
 class EnsembleForecaster:
     """Regime-conditional weighted ensemble forecaster.
 
+    .. note:: Experimental. In walk-forward evaluation on SPY 2012-2026
+       (``examples/31_model_comparison.py``) this ensemble was 7.5% *worse* (CRPS)
+       than a rolling-volatility Gaussian at 21 days, and the default
+       GJR-GARCH skew-t model (:func:`synthquant.forecast_prices`) beat it at
+       every horizon. Prefer the default for trading decisions.
+
     Runs three simulation engines with regime-calibrated parameters
     and blends their output distributions using regime-conditional
     weights.

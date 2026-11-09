@@ -9,10 +9,10 @@
 **SynthQuant** is a production-grade synthetic financial data generation and probabilistic forecasting platform. It combines regime detection, stochastic volatility models, Monte Carlo simulation, and risk analytics into a unified, extensible Python framework.
 
 <p align="center">
-  <img src="docs/fan_chart.png" alt="SPY 24-hour probabilistic forecast fan chart" width="100%">
+  <img src="docs/fan_chart.png" alt="SPY 21-day probabilistic forecast fan chart" width="100%">
 </p>
 
-<p align="center"><em>5-day probabilistic price forecast for SPY — 500 MC paths at 30-minute intervals (market hours only) via EnsembleForecaster (Heston + Merton JD + Regime-Switching + Rough Bergomi). Percentile bands show the full predicted distribution with fat tails and negative skew from GJR-GARCH calibration.</em></p>
+<p align="center"><em>21-trading-day probabilistic price forecast for SPY from the default model, GJR-GARCH with skew-t innovations (<code>synthquant.forecast_prices</code>). Percentile bands show the full predicted distribution; the asymmetric fan comes from the leverage effect, which raises volatility after down days. Regenerate with <code>python scripts/generate_fan_chart.py</code>.</em></p>
 
 ---
 
@@ -304,6 +304,9 @@ pip install synthquant
 # With data fetching (yfinance)
 pip install "synthquant[data]"
 
+# With plotting (matplotlib, for the fan chart script and examples)
+pip install "synthquant[plot]"
+
 # With Bayesian calibration (PyMC)
 pip install "synthquant[bayesian]"
 
@@ -325,37 +328,42 @@ pip install "synthquant[dev]"
 ## Quickstart
 
 ```python
+import yfinance as yf
+from synthquant import forecast_prices
+
+close = yf.download("SPY", period="5y", auto_adjust=True)["Close"].squeeze()
+
+# Default model: GJR-GARCH(1,1) with skew-t innovations, fit on the last 2 years
+fc = forecast_prices(close, horizon=21, random_state=0)
+
+fc.summary()        # price bands, 95% VaR / ES and P(up) at 1, 5, 10, 21 days
+fc.bands()          # daily price quantiles (5/25/50/75/95%) for a fan chart
+fc.value_at_risk(0.01, horizon=5)   # 5-day 99% VaR as a simple return
+fc.prob_above(750, horizon=21)      # probability SPY closes above $750 in 21 days
+```
+
+**Why this default?** Every model in the library was scored out of sample with the
+same walk-forward harness (daily, 2012–2026, SPY/QQQ/IWM/TLT/GLD;
+[example 31](examples/31_model_comparison.py)). GJR-GARCH skew-t had the best CRPS at
+1, 5 and 21 days and passed the 1% VaR backtests on most assets. The regime-switching
+and four-engine ensemble forecasters did worse at every horizon and are kept as
+experimental.
+
+Compare models yourself:
+
+```python
 import numpy as np
-from synthquant.simulation.engines.gbm import GBMEngine
-from synthquant.regime.hmm import HMMRegimeDetector
-from synthquant.analytics.risk_metrics import value_at_risk, expected_shortfall
+from synthquant.evaluation import walk_forward
+from synthquant.forecasters import GaussianForecaster, GJRGarchForecaster, LaplaceForecaster
 
-# 1. Simulate 10,000 GBM paths over 1 year (252 steps)
-engine = GBMEngine()
-paths = engine.simulate(
-    n_paths=10_000,
-    n_steps=252,
-    dt=1/252,
-    S0=100.0,
-    mu=0.07,
-    sigma=0.20,
-    random_state=42,
+returns = np.log(close).diff().dropna()
+res = walk_forward(
+    returns,
+    [GaussianForecaster(), LaplaceForecaster(), GJRGarchForecaster("skewt")],
+    horizons=(1, 5, 21),
 )
-print(f"Paths shape: {paths.shape}")  # (10000, 253)
-
-# 2. Detect regimes on historical returns
-returns = np.random.normal(0, 0.01, 500)  # replace with real data
-detector = HMMRegimeDetector(n_components=2, random_state=42)
-detector.fit(returns)
-regimes = detector.predict(returns)
-params = detector.get_regime_params()
-print(f"Regime 0 vol: {params[0]['sigma']:.4f}")
-
-# 3. Compute risk metrics on terminal prices
-var_95 = value_at_risk(paths, alpha=0.05)
-es_95 = expected_shortfall(paths, alpha=0.05)
-print(f"95% VaR: {var_95:.4f}")
-print(f"95% ES:  {es_95:.4f}")
+res.summary()       # CRPS, skill vs baseline, Diebold-Mariano p, PIT, coverage
+res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 ```
 
 ---
@@ -368,7 +376,9 @@ print(f"95% ES:  {es_95:.4f}")
 | `synthquant.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features, market adjustment |
 | `synthquant.models` | GARCH, Heston, Merton Jump-Diffusion, Rough Bergomi, HAR-RV (standard/jump/CJ), Bayesian calibration |
 | `synthquant.simulation` | GBM, Heston, Merton JD, Regime-Switching, Rough Bergomi engines; variance reduction; copulas; GPU |
-| `synthquant.forecast` | ProbabilisticForecaster, EnsembleForecaster — walk-forward probabilistic density forecasting, intraday 5-min paths, CRPS-optimal engine weights |
+| `synthquant.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
+| `synthquant.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test |
+| `synthquant.forecast` | *Experimental:* ProbabilisticForecaster, EnsembleForecaster (regime-switching and multi-engine Monte Carlo), intraday paths |
 | `synthquant.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `synthquant.strategy` | Kelly criterion, risk parity, CVaR sizing, regime signals, forecast signals, predictive allocator, signal tuner, hedging, walk-forward backtest |
 | `synthquant.api` | FastAPI REST + WebSocket server |

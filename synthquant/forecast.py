@@ -158,6 +158,12 @@ class ForecastResult:
 class ProbabilisticForecaster:
     """Regime-aware probabilistic forecaster.
 
+    .. note:: Experimental. In walk-forward evaluation on SPY 2012-2026
+       (``examples/31_model_comparison.py``) this model was no better than a
+       rolling-volatility Gaussian at 21 days, and the default
+       GJR-GARCH skew-t model (:func:`synthquant.forecast_prices`) beat it at
+       every horizon. Prefer the default for trading decisions.
+
     Combines regime detection (HMM, MS-GARCH, or ensemble), GARCH
     volatility conditioning, and regime-switching Monte Carlo simulation
     to produce full forecast distributions.
