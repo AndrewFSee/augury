@@ -227,3 +227,52 @@ class TestPathModelAdapter:
         assert out.samples.shape == (300, 2)
         assert np.all(np.isfinite(out.samples))
         assert out.at(5).std() > out.at(1).std()
+
+
+class TestGJRSimulate:
+    def test_predict_is_cumulative_simulate(self, fitted_skewt, gjr_data):
+        r, _ = gjr_data
+        hist = r[:2500]
+        u = np.random.default_rng(0).random((400, 21))
+        daily = fitted_skewt.simulate(hist, 21, uniforms=u)
+        assert daily.shape == (400, 21)
+        # same uniforms, same paths
+        np.testing.assert_array_equal(daily, fitted_skewt.simulate(hist, 21, uniforms=u))
+        fc = fitted_skewt.predict(hist, (1, 21), n_samples=4000, random_state=1)
+        sim = fitted_skewt.simulate(hist, 21, n_samples=4000, random_state=2).sum(axis=1)
+        assert sim.std() == pytest.approx(fc.at(21).std(), rel=0.08)
+
+    def test_variance_scale_shocks_then_decays(self, fitted_skewt, gjr_data):
+        r, _ = gjr_data
+        hist = r[:2500]
+        base = fitted_skewt.simulate(hist, 63, n_samples=20_000, random_state=0)
+        shocked = fitted_skewt.simulate(
+            hist, 63, n_samples=20_000, random_state=0, variance_scale=4.0
+        )
+        ratio_day1 = shocked[:, 0].std() / base[:, 0].std()
+        ratio_day63 = shocked[:, -1].std() / base[:, -1].std()
+        assert ratio_day1 == pytest.approx(2.0, rel=1e-9)  # same uniforms: exact
+        assert 1.0 <= ratio_day63 < ratio_day1
+
+    def test_uniforms_drive_correlation(self, gjr_data):
+        """Correlated uniforms (Gaussian copula) give correlated asset paths."""
+        r, _ = gjr_data
+        a = GJRGarchForecaster("t").fit(r[:1500])
+        b = GJRGarchForecaster("t").fit(r[1500:3000])
+        rng = np.random.default_rng(3)
+        z = rng.multivariate_normal([0, 0], [[1, 0.8], [0.8, 1]], size=(5000, 5))
+        u = stats.norm.cdf(z)
+        ra = a.simulate(r[:1500], 5, uniforms=u[:, :, 0])
+        rb = b.simulate(r[1500:3000], 5, uniforms=u[:, :, 1])
+        assert np.corrcoef(ra[:, 0], rb[:, 0])[0, 1] > 0.7
+
+    def test_residuals_time_ordered_and_validation(self, fitted_skewt, gjr_data):
+        z = fitted_skewt.standardized_residuals()
+        assert z.size == 2500
+        assert not np.all(np.diff(z) >= 0)  # not sorted
+        assert np.nanstd(z) == pytest.approx(1.0)
+        r, _ = gjr_data
+        with pytest.raises(ValueError, match="variance_scale"):
+            fitted_skewt.simulate(r[:100], 5, variance_scale=0.0)
+        with pytest.raises(ValueError, match="shape"):
+            fitted_skewt.simulate(r[:100], 5, uniforms=np.zeros((10, 4)))

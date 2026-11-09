@@ -162,6 +162,16 @@ mc_prices = {
 log(f"\n  Pricing European calls across {n_strikes} strikes × "
     f"{n_mats} maturities...")
 
+# Black-Scholes baseline: flat vol matched to the GARCH model's own expected
+# variance at each maturity. GARCH - BS differences then isolate the smile
+# and skew, rather than comparing today's GARCH vol with a trailing average.
+bs_vol = {
+    T_days: float(np.std(np.log(garch_price_paths[:, T_days] / S0)) / np.sqrt(T_days / 252.0))
+    for T_days in MATURITIES_DAYS
+}
+log("  BS baseline vol (matched to GARCH horizon variance): "
+    + ", ".join(f"{d}d={v:.1%}" for d, v in bs_vol.items()))
+
 for mi, T_days in enumerate(MATURITIES_DAYS):
     T = T_days / 252.0
     # Slice paths to this maturity
@@ -173,7 +183,7 @@ for mi, T_days in enumerate(MATURITIES_DAYS):
             garch_terminal, K, T, R, "call")
         mc_prices["Heston"][mi, si] = pricer.price_european(
             heston_terminal, K, T, R, "call")
-        mc_prices["BS"][mi, si] = _bs_call(S0, K, T, R, trailing_vol)
+        mc_prices["BS"][mi, si] = _bs_call(S0, K, T, R, bs_vol[T_days])
 
 # ── Extract implied volatilities ─────────────────────────────────────
 log("\n  Extracting implied vol surface...")
@@ -290,12 +300,13 @@ greeks_garch = pricer.compute_greeks(garch_paths_3m, K_atm, T_greeks, R,
 greeks_heston = pricer.compute_greeks(heston_paths_3m, K_atm, T_greeks, R,
                                        bump_size=0.01, option_type="call")
 
-# BS Greeks (analytical)
-d1 = (np.log(S0 / K_atm) + (R + 0.5 * trailing_vol**2) * T_greeks) / (
-    trailing_vol * np.sqrt(T_greeks))
-d2 = d1 - trailing_vol * np.sqrt(T_greeks)
+# BS Greeks (analytical), at the GARCH-matched 63-day vol
+sig_g = bs_vol.get(63, trailing_vol)
+d1 = (np.log(S0 / K_atm) + (R + 0.5 * sig_g**2) * T_greeks) / (
+    sig_g * np.sqrt(T_greeks))
+d2 = d1 - sig_g * np.sqrt(T_greeks)
 bs_delta = float(norm.cdf(d1))
-bs_gamma = float(norm.pdf(d1) / (S0 * trailing_vol * np.sqrt(T_greeks)))
+bs_gamma = float(norm.pdf(d1) / (S0 * sig_g * np.sqrt(T_greeks)))
 bs_vega = float(S0 * norm.pdf(d1) * np.sqrt(T_greeks))
 
 log(f"  {'':>12s} {'BS':>10s} {'GARCH':>10s} {'Heston':>10s}")

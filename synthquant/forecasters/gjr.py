@@ -66,6 +66,7 @@ class GJRGarchForecaster(ReturnForecaster):
         self._dist_obj: Any = None
         self._dist_params: np.ndarray | None = None
         self._std_resid: np.ndarray | None = None
+        self._resid_ts: np.ndarray | None = None
         self._ppf_table: tuple[np.ndarray, np.ndarray] | None = None
 
     # ------------------------------------------------------------------ fitting
@@ -98,8 +99,9 @@ class GJRGarchForecaster(ReturnForecaster):
         k = self._dist_obj.num_params
         self._dist_params = np.asarray(p.iloc[len(p) - k :], dtype=float) if k else None
         z = np.asarray(res.std_resid, dtype=float)
-        z = z[np.isfinite(z)]
-        self._std_resid = np.sort((z - z.mean()) / z.std())
+        z = (z - np.nanmean(z)) / np.nanstd(z)
+        self._resid_ts = z
+        self._std_resid = np.sort(z[np.isfinite(z)])
         self._ppf_table = None
         if self.dist != "normal":
             # scipy's t / skew-t ppf is slow (root finding); invert a dense CDF
@@ -161,26 +163,65 @@ class GJRGarchForecaster(ReturnForecaster):
         random_state: int | np.random.Generator | None = None,
     ) -> ReturnForecast:
         hs = validate_horizons(horizons)
-        h_next = self._next_variance(history)
-        assert self._params is not None
-        p = self._params
         rng = np.random.default_rng(random_state)
-
         u = rng.random((n_samples, hs[-1]))
         u[:, 0] = stratified_uniforms(n_samples, rng)
+        daily = self.simulate(history, hs[-1], uniforms=u)
+        cum = np.cumsum(daily, axis=1)
+        return ReturnForecast(hs, cum[:, [h - 1 for h in hs]])
+
+    def simulate(
+        self,
+        history: np.ndarray,
+        horizon: int,
+        n_samples: int = 2000,
+        random_state: int | np.random.Generator | None = None,
+        *,
+        variance_scale: float = 1.0,
+        uniforms: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Simulate daily log-return paths through the GJR recursion.
+
+        Args:
+            history: Log returns up to the forecast origin.
+            horizon: Number of periods per path.
+            n_samples: Number of paths (ignored when ``uniforms`` is given).
+            random_state: Seed or Generator (ignored when ``uniforms`` is given).
+            variance_scale: Multiplies the starting conditional variance, for
+                stress scenarios: ``4.0`` doubles today's volatility, which
+                then decays at the fitted GJR persistence.
+            uniforms: Optional ``(n_samples, horizon)`` array of uniforms that
+                drive the innovations, e.g. from a copula to correlate several
+                assets. Each is mapped through the innovation quantile function.
+
+        Returns:
+            Array of shape ``(n_samples, horizon)`` with daily log returns.
+        """
+        if variance_scale <= 0:
+            raise ValueError("variance_scale must be positive")
+        h_next = self._next_variance(history) * variance_scale
+        assert self._params is not None
+        p = self._params
+        if uniforms is None:
+            uniforms = np.random.default_rng(random_state).random((n_samples, horizon))
+        u = np.asarray(uniforms, dtype=float)
+        if u.ndim != 2 or u.shape[1] != horizon:
+            raise ValueError(f"uniforms must have shape (n_samples, {horizon})")
         z = self._innovations(np.clip(u, 1e-12, 1 - 1e-12).ravel()).reshape(u.shape)
 
-        var = np.full(n_samples, h_next)
-        cum = np.zeros(n_samples)
-        out = np.empty((n_samples, len(hs)))
-        col = {h: j for j, h in enumerate(hs)}
-        for k in range(hs[-1]):
+        var = np.full(u.shape[0], h_next)
+        out = np.empty(u.shape)
+        for k in range(horizon):
             eps = np.sqrt(var) * z[:, k]
-            cum += p["mu"] + eps
-            if k + 1 in col:
-                out[:, col[k + 1]] = cum
+            out[:, k] = p["mu"] + eps
             var = p["omega"] + (p["alpha"] + p["gamma"] * (eps < 0)) * eps**2 + p["beta"] * var
-        return ReturnForecast(hs, out / self.scale)
+        return out / self.scale
+
+    def standardized_residuals(self) -> np.ndarray:
+        """In-sample standardized residuals from the last fit, in time order."""
+        self._check_fitted()
+        assert self._resid_ts is not None
+        return self._resid_ts.copy()
 
 
 class FilteredHistoricalSimulation(GJRGarchForecaster):
