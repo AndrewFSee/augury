@@ -15,12 +15,13 @@ __all__ = ["PathModelForecaster"]
 class PathModelForecaster(ReturnForecaster):
     """Wrap a model with ``fit(returns)`` and ``forecast(horizon, current_price)``.
 
-    Works with :class:`~synthquant.forecast.ProbabilisticForecaster` and
-    :class:`~synthquant.ensemble_forecast.EnsembleForecaster`, whose
-    ``forecast()`` returns price paths. The number of samples is the wrapped
-    model's ``n_paths``; ``n_samples`` and ``random_state`` are ignored.
+    Any model whose ``forecast()`` returns an object with a ``paths`` array of
+    prices, shape ``(n_paths, horizon + 1)``, can be scored by the walk-forward
+    harness this way (the archived regime and ensemble forecasters were). The
+    number of samples is the wrapped model's ``n_paths``; ``n_samples`` and
+    ``random_state`` are ignored.
 
-    These models condition only on the window they were fit on, so for a
+    Such models usually condition only on the window they were fit on, so for a
     fair comparison evaluate them with ``refit_every`` equal to
     ``eval_every`` in the walk-forward harness.
 
@@ -29,11 +30,7 @@ class PathModelForecaster(ReturnForecaster):
         name: Identifier used in evaluation tables.
 
     Example:
-        >>> from synthquant.forecast import ProbabilisticForecaster
-        >>> fc = PathModelForecaster(
-        ...     lambda: ProbabilisticForecaster(n_paths=2000, random_state=0),
-        ...     name="regime-hmm",
-        ... )
+        >>> fc = PathModelForecaster(lambda: MyPathModel(n_paths=2000), name="my-model")
     """
 
     def __init__(self, factory: Callable[[], Any], name: str = "path-model") -> None:

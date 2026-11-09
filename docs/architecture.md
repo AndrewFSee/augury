@@ -2,7 +2,7 @@
 
 ## Overview
 
-SynthQuant is structured as a layered pipeline: raw market data flows upward through regime detection and model calibration into Monte Carlo simulation, then into analytics and strategy components.
+SynthQuant is structured as a layered pipeline: raw market data flows upward through regime detection and model calibration into Monte Carlo simulation, then into analytics and strategy components. The forecasting entry point, `forecast_prices`, sits on the `forecasters` package (GJR-GARCH skew-t by default), and every forecaster is scored with the walk-forward harness in `evaluation`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -13,8 +13,8 @@ SynthQuant is structured as a layered pipeline: raw market data flows upward thr
 │ • Ingest     │ • HMM        │ • GARCH       │ • GBM Engine      │
 │ • Features   │ • MS-GARCH   │ • Heston      │ • Heston Engine   │
 │ • Storage    │ • Clustering │ • Merton JD   │ • Merton JD Eng.  │
-│   (Parquet)  │ • Ensemble   │ • Rough Vol   │ • Regime Switch.  │
-│              │              │ • Calibration │ • Rough Bergomi   │
+│   (Parquet)  │ • Ensemble   │ • HAR-RV      │ • Regime Switch.  │
+│              │              │ • Calibration │                   │
 │              │              │               │ • Variance Reduc. │
 │              │              │               │ • Copula Sim.     │
 │              │              │               │ • GPU Engine      │
@@ -65,7 +65,6 @@ Parametric stochastic models for volatility and returns.
 - **`HestonModel`**: Stochastic volatility with mean-reverting variance (Euler-Maruyama simulation).
 - **`MertonJumpDiffusion`**: GBM plus compound Poisson jumps; includes closed-form European option pricing.
 - **`KouModel`**: Double-exponential jump distribution variant.
-- **`RoughBergomi`**: Fractional Brownian motion-driven volatility with Hurst exponent H < 0.5.
 - **`MLECalibrator`**: Fits model parameters via `scipy.optimize`.
 - **`BayesianCalibrator`**: Fits parameters via PyMC posterior sampling (optional dependency).
 
@@ -78,7 +77,6 @@ Monte Carlo engines and tools for path generation.
 - **`MertonJDEngine`**: GBM + Poisson jumps.
 - **`HestonEngine`**: QE scheme for stochastic variance.
 - **`RegimeSwitchingEngine`**: Markov chain over a dict of per-regime parameter sets.
-- **`RoughBergomiEngine`**: Hybrid scheme for fractional Brownian motion.
 - **`CopulaSimulator`**: Multi-asset copula sampling (Gaussian, Student-t, Clayton).
 - **`GPUEngine`**: JAX-accelerated wrapper with NumPy fallback.
 - **Variance reduction**: `antithetic_variates`, `control_variates`, `stratified_sampling`, `importance_sampling`.
@@ -143,7 +141,7 @@ Model Calibration (MLE / Bayesian)
     ├──► Calibrated Parameters per Regime
     │
     ▼
-SimulationEngine (GBM / Heston / Merton / Regime-Switching / Rough Bergomi)
+SimulationEngine (GBM / Heston / Merton / Regime-Switching)
     │
     ├──► Paths: (n_paths, n_steps+1)
     │

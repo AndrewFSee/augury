@@ -45,8 +45,9 @@ Gaussian, averaged over the five assets.
 </tbody>
 </table>
 
-The regime-switching and multi-engine Monte Carlo forecasters are slower, so they were
-scored on monthly forecast dates for SPY, alongside the default model on the same dates:
+The regime-switching and multi-engine Monte Carlo forecasters (now [archived](archive/README.md);
+reproducible at git tag `pre-augury-archive`) are slower, so they were scored on monthly
+forecast dates for SPY, alongside the default model on the same dates:
 
 <table>
 <thead>
@@ -54,8 +55,8 @@ scored on monthly forecast dates for SPY, alongside the default model on the sam
 </thead>
 <tbody>
 <tr><td><b>GJR-GARCH skew-t</b></td><td align="center">+9.0%</td><td align="center">+5.7%</td><td align="center">+7.3%</td></tr>
-<tr><td>Regime-switching HMM <i>(experimental)</i></td><td align="center">+6.6%</td><td align="center">+3.6%</td><td align="center">+0.4%</td></tr>
-<tr><td>4-engine ensemble <i>(experimental)</i></td><td align="center">+7.6%</td><td align="center">+2.8%</td><td align="center">-7.5%</td></tr>
+<tr><td>Regime-switching HMM <i>(archived)</i></td><td align="center">+6.6%</td><td align="center">+3.6%</td><td align="center">+0.4%</td></tr>
+<tr><td>4-engine ensemble <i>(archived)</i></td><td align="center">+7.6%</td><td align="center">+2.8%</td><td align="center">-7.5%</td></tr>
 </tbody>
 </table>
 
@@ -250,7 +251,6 @@ shock then decays at each asset's fitted persistence.
 - GARCH / GJR-GARCH
 - Heston Stochastic Vol
 - Merton Jump-Diffusion
-- Rough Bergomi
 - HAR-RV
 - Bayesian Calibration
 
@@ -262,7 +262,6 @@ shock then decays at each asset's fitted persistence.
 - Heston Engine
 - Merton JD Engine
 - Regime-Switching
-- Rough Bergomi
 - Variance Reduction
 - Copula Correlation
 - GPU Engine
@@ -273,7 +272,7 @@ shock then decays at each asset's fitted persistence.
 <tr>
 <td colspan="4">
 
-**Forecasting Layer** &mdash; `forecast_prices` (default: GJR-GARCH skew-t) · FHS · HAR · Laplace · baselines · walk-forward harness · Kupiec / Christoffersen / Basel · Diebold-Mariano · <i>experimental:</i> `ProbabilisticForecaster`, `EnsembleForecaster`, intraday paths
+**Forecasting Layer** &mdash; `forecast_prices` (default: GJR-GARCH skew-t) · FHS · HAR · Laplace · baselines · walk-forward harness · Kupiec / Christoffersen / Basel · Diebold-Mariano
 
 </td>
 </tr>
@@ -291,8 +290,8 @@ shock then decays at each asset's fitted persistence.
 
 **Strategy Layer**
 - Kelly Criterion · Risk Parity · CVaR-Optimal Sizing
-- Regime Signals · Forecast Signals · Predictive Allocator
-- Signal Tuner · Delta/Gamma Hedging · Walk-Forward Backtest
+- Regime Signals · Momentum Signals
+- Delta/Gamma Hedging · Walk-Forward Backtest
 
 </td>
 <td colspan="2" valign="top">
@@ -363,8 +362,8 @@ fc = forecast_prices(close, horizon=21, annual_drift=0.05)
 same walk-forward harness (daily, 2012–2026, SPY/QQQ/IWM/TLT/GLD;
 [example 31](examples/31_model_comparison.py)). GJR-GARCH skew-t had the best CRPS at
 1, 5 and 21 days and passed the 1% VaR backtests on most assets. The regime-switching
-and four-engine ensemble forecasters did worse at every horizon and are kept as
-experimental.
+and four-engine ensemble forecasters did worse at every horizon and have been
+archived.
 
 Compare models yourself:
 
@@ -390,103 +389,42 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | Module | Description |
 |--------|-------------|
 | `synthquant.data` | Market data ingestion (yfinance), feature engineering, Parquet storage, realized measures (RV, BPV, semi-variance, Parkinson, Garman-Klass) |
-| `synthquant.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features, market adjustment |
-| `synthquant.models` | GARCH, Heston, Merton Jump-Diffusion, Rough Bergomi, HAR-RV (standard/jump/CJ), Bayesian calibration |
-| `synthquant.simulation` | GBM, Heston, Merton JD, Regime-Switching, Rough Bergomi engines; variance reduction; copulas; GPU |
+| `synthquant.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features |
+| `synthquant.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
+| `synthquant.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
 | `synthquant.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
 | `synthquant.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test |
-| `synthquant.forecast` | *Experimental:* ProbabilisticForecaster, EnsembleForecaster (regime-switching and multi-engine Monte Carlo), intraday paths |
 | `synthquant.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
-| `synthquant.strategy` | Kelly criterion, risk parity, CVaR sizing, regime signals, forecast signals, predictive allocator, signal tuner, hedging, walk-forward backtest |
+| `synthquant.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
 | `synthquant.api` | FastAPI REST + WebSocket server |
 | `dashboard` | Streamlit interactive dashboard with Plotly charts |
+| `archive/` | Retired code (regime/ensemble forecasters, Rough Bergomi, forecast-driven allocators) — see [archive/README.md](archive/README.md) |
 
 ---
 
 ## Examples
 
-### Core Pipeline
-
 | # | Example | Description |
 |---|---------|-------------|
-| 01 | `data_ingestion` | Fetch SPY data, compute features, store to Parquet |
-| 02 | `regime_detection` | HMM, GMM, and ensemble regime detection |
-| 03 | `volatility_modeling` | Fit GARCH and Heston, compare vol forecasts |
-| 04 | `monte_carlo_simulation` | Regime-switching MC simulation with fan charts |
-| 05 | `risk_analytics` | VaR, CVaR, drawdown, Greeks from simulated paths |
-| 06 | `full_pipeline` | End-to-end: data → regime → model → strategy → backtest |
-
-### Forecasting & Evaluation
-
-| # | Example | Description |
-|---|---------|-------------|
-| 07 | `probabilistic_forecasting` | ProbabilisticForecaster fit, forecast, walk-forward scoring |
-| 08 | `ensemble_vs_single` | Walk-forward comparison: single vs ensemble forecaster |
-| 09 | `real_data_validation` | Walk-forward validation on SPY, QQQ, and volatile tickers |
-| 31 | `model_comparison` | **Model bake-off** — every forecaster scored walk-forward (CRPS, coverage, VaR tests) on 5 ETFs, plus the regime/ensemble forecasters |
-
-### Signal Construction & Tuning
-
-| # | Example | Description |
-|---|---------|-------------|
-| 10 | `forecast_signals` | Composite forecast signal demo on real data |
-| 11 | `signal_tuning` | Walk-forward signal weight tuning (differential evolution) |
-| 12 | `default_robustness` | Default signal weight robustness across tickers/periods |
-
-### Regime Analysis & Allocation
-
-| # | Example | Description |
-|---|---------|-------------|
-| 13 | `regime_stability` | Regime detection stability: smoothed vs filtered HMM |
-| 14 | `allocator_comparison` | Regime allocator vs composite signal vs buy-and-hold |
-| 15 | `momentum_reentry` | Isolate momentum re-entry feature impact |
-| 16 | `multivariate_hmm` | Multivariate HMM feature comparison |
-
-### Advanced Signals & Market Data
-
-| # | Example | Description |
-|---|---------|-------------|
-| 17 | `feature_selection` | HMM feature subset selection via walk-forward |
-| 18 | `predictive_signals` | Predictive signals vs buy-and-hold across tickers |
-| 19 | `market_implied_signals` | OHLCV vs OHLCV + options/credit data |
-| 20 | `market_regime_adjustment` | Market-implied regime adjustment for forecast calibration |
-
-### Diagnostics & Evaluation
-
-| # | Example | Description |
-|---|---------|-------------|
-| 21 | `hmm_diagnostics` | Comprehensive HMM accuracy and behavior evaluation |
-| 22 | `honest_evaluation` | Honest walk-forward evaluation of momentum × vol-sizing |
-
-### Strategy Backtests
-
-| # | Example | Description |
-|---|---------|-------------|
-| 23 | `forecast_as_signal` | Does MC forecast distribution add value beyond trailing indicators? |
-| 24 | `vrp_strategy` | Variance risk premium strategy using probabilistic vol forecast |
-| 25 | `calibration_showcase` | Probabilistic calibration showcase with 7 models |
-| 25 | `multi_asset_allocation` | Multi-asset forecast-driven allocation |
-
-### Calibration & Model Improvement
-
-| # | Example | Description |
-|---|---------|-------------|
-| 26 | `external_data_experiment` | External data sources (VIX, SKEW, credit) for GJR-GARCH |
-| 27 | `parameter_tuning` | Grid-search optimal parameters for external data models |
-
-### Industry Use Cases
-
-| # | Example | Description |
-|---|---------|-------------|
+| 01 | `data_ingestion` | Fetch SPY data, compute features, store locally |
+| 02 | `regime_detection` | HMM, GMM and ensemble regime detection |
+| 03 | `volatility_modeling` | Fit GARCH and Heston, compare forecasts |
+| 04 | `monte_carlo_simulation` | Regime-switching Monte Carlo with a fan chart summary |
+| 05 | `risk_analytics` | VaR, CVaR, drawdown and Greeks from simulated paths |
+| 21 | `hmm_diagnostics` | HMM regime detector accuracy and behaviour |
+| 26 | `external_data_experiment` | VIX / MOVE / SKEW / credit-spread enhancements to GJR-GARCH forecasts |
+| 27 | `parameter_tuning` | Grid search for the external-data enhancements in example 26 |
 | 28 | `var_backtesting` | **VaR backtesting report** — 8 models through the walk-forward harness, Kupiec / Christoffersen / Basel, crisis windows |
-| 29 | `option_pricing` | **MC option pricing** — European/Asian/barrier options, implied vol surface, Greeks |
+| 29 | `option_pricing` | **MC option pricing** — European / Asian / barrier options, implied vol smile, Greeks |
 | 30 | `stress_testing` | **Stress testing** — correlated GJR skew-t scenarios (Gaussian copula, decaying vol shocks), historical crisis placement |
+| 31 | `model_comparison` | **Model bake-off** — every forecaster scored walk-forward (CRPS, coverage, VaR tests) on 5 ETFs |
+
+Examples 06–25 used the archived regime and ensemble forecasters; they live in
+[archive/examples](archive/examples) and run at git tag `pre-augury-archive`.
 
 ```bash
-# Run any example
-python examples/01_data_ingestion.py
+python examples/31_model_comparison.py
 python examples/28_var_backtesting.py
-python examples/30_stress_testing.py
 ```
 
 ---
@@ -525,7 +463,7 @@ Or via a `.env` file in the project root.
 | Stress testing example | Assets simulated independently from random long-run states; now correlated and conditional |
 | `ForecastScorer.crps` | O(n²) memory (~800 MB at 10k samples); now O(n log n) |
 
-**New default forecaster** — GJR-GARCH with skew-t innovations via `forecast_prices()`, chosen by out-of-sample evidence (see Showcase). The regime-switching and ensemble forecasters are kept as experimental.
+**New default forecaster** — GJR-GARCH with skew-t innovations via `forecast_prices()`, chosen by out-of-sample evidence (see Showcase). The regime-switching and ensemble forecasters were archived.
 
 **New modules** — `synthquant.forecasters` (one `fit`/`predict` interface for GJR, FHS, HAR, Laplace and baselines; correlated multi-asset simulation via `GJRGarchForecaster.simulate`) and `synthquant.evaluation` (walk-forward harness, CRPS/PIT/coverage, Kupiec/Christoffersen/Basel, Diebold-Mariano).
 

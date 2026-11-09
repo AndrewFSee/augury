@@ -21,7 +21,6 @@ __all__ = [
     "gbm_drift",
     "heston_drift",
     "merton_drift",
-    "rough_bergomi_drift",
 ]
 
 
@@ -74,13 +73,3 @@ def merton_drift(
     """
     k = np.exp(mu_j + 0.5 * sigma_j**2) - 1.0
     return float(mu_log + 0.5 * sigma**2 + lambda_j * (k - mu_j))
-
-
-def rough_bergomi_drift(mu_log: float, xi: float) -> float:
-    """Arithmetic drift for rough Bergomi (flat forward variance ``xi``).
-
-    Args:
-        mu_log: Annualised mean log return.
-        xi: Annualised forward variance.
-    """
-    return float(mu_log + 0.5 * xi)

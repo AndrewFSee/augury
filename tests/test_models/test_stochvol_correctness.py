@@ -1,4 +1,4 @@
-"""Statistical correctness tests for Heston and Rough Bergomi stochastic vol models.
+"""Statistical correctness tests for the Heston stochastic vol model.
 
 These tests verify analytical moment recovery, distributional properties,
 and the defining characteristics of each model that matter for forecast quality.
@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from synthquant.models.rough_vol import RoughBergomi
 from synthquant.models.stochastic_vol import HestonModel
 
 # ===========================================================================
@@ -139,114 +138,3 @@ class TestHestonImpliedVolSurface:
         assert excess_kurt > 0.1, (
             f"Heston returns should be leptokurtic, excess_kurt={excess_kurt:.3f}"
         )
-
-
-# ===========================================================================
-# Rough Bergomi — Roughness Validation
-# ===========================================================================
-
-
-class TestRoughBergomiCorrectness:
-    """Verify that Rough Bergomi exhibits correct roughness properties."""
-
-    def test_hurst_exponent_estimation(self):
-        """The variance process should have estimated Hurst exponent ~ H.
-
-        We estimate H from the variance of log-variance increments at
-        different lags: Var[log V(t+lag) - log V(t)] ~ lag^(2H).
-        """
-        H_true = 0.1
-        model = RoughBergomi(H=H_true, xi=0.04, eta=1.5, rho=-0.7, mu=0.0)
-        S, V = model.simulate(100.0, 1.0, n_paths=500, n_steps=1000, random_state=42)
-
-        # Use log-variance increments to estimate H
-        log_V = np.log(np.maximum(V[:, 1:], 1e-12))  # avoid log(0)
-
-        lags = [1, 2, 4, 8, 16, 32]
-        variances = []
-        for lag in lags:
-            increments = log_V[:, lag:] - log_V[:, :-lag]
-            variances.append(np.var(increments))
-
-        # Fit log(var) = 2H * log(lag) + const
-        log_lags = np.log(lags)
-        log_vars = np.log(variances)
-        slope, _, _, _, _ = (
-            np.polyfit(log_lags, log_vars, 1, full=True)[0:5]
-            if False
-            else (np.polyfit(log_lags, log_vars, 1)[0],) + (None,) * 4
-        )
-        H_estimated = slope / 2
-
-        # Allow wide tolerance — estimation from 500 paths is noisy
-        assert 0.01 < H_estimated < 0.35, (
-            f"Estimated H={H_estimated:.3f} far from true H={H_true} (expected in [0.01, 0.35])"
-        )
-
-    def test_lower_hurst_rougher_variance_paths(self):
-        """Lower H should produce rougher (more irregular) variance paths."""
-        S0, T, n_paths, n_steps = 100.0, 1.0, 1000, 500
-
-        model_rough = RoughBergomi(H=0.05, xi=0.04, eta=1.5, rho=-0.7)
-        model_smooth = RoughBergomi(H=0.40, xi=0.04, eta=1.5, rho=-0.7)
-
-        _, V_rough = model_rough.simulate(S0, T, n_paths, n_steps, random_state=42)
-        _, V_smooth = model_smooth.simulate(S0, T, n_paths, n_steps, random_state=42)
-
-        # Roughness metric: mean absolute first difference of log-variance
-        roughness_rough = np.mean(np.abs(np.diff(np.log(np.maximum(V_rough, 1e-12)), axis=1)))
-        roughness_smooth = np.mean(np.abs(np.diff(np.log(np.maximum(V_smooth, 1e-12)), axis=1)))
-
-        assert roughness_rough > roughness_smooth, (
-            f"Lower H should be rougher: H=0.05 roughness={roughness_rough:.5f}, "
-            f"H=0.40 roughness={roughness_smooth:.5f}"
-        )
-
-    def test_rough_bergomi_drift_recovery(self):
-        """E[S_T] should approximate S0 * exp(mu * T) for the Rough Bergomi model."""
-        mu = 0.05
-        model = RoughBergomi(H=0.1, xi=0.04, eta=1.5, rho=-0.7, mu=mu)
-        S0, T = 100.0, 1.0
-        S, _ = model.simulate(S0, T, n_paths=15000, n_steps=500, random_state=42)
-
-        expected_mean = S0 * np.exp(mu * T)
-        empirical_mean = S[:, -1].mean()
-
-        rel_err = abs(empirical_mean - expected_mean) / expected_mean
-        assert rel_err < 0.05, (
-            f"Rough Bergomi drift: empirical={empirical_mean:.2f}, "
-            f"expected={expected_mean:.2f}, rel_err={rel_err:.4f}"
-        )
-
-    def test_rough_bergomi_produces_fat_tails(self):
-        """Rough Bergomi with moderate eta should produce leptokurtic returns."""
-        model = RoughBergomi(H=0.1, xi=0.04, eta=1.0, rho=-0.5, mu=0.0)
-        S, _ = model.simulate(100.0, 1.0, n_paths=15000, n_steps=500, random_state=42)
-
-        terminal = S[:, -1]
-        # Filter out any paths that hit zero (numerical artifact)
-        valid = terminal > 0
-        log_returns = np.log(terminal[valid] / S[valid, 0])
-        excess_kurt = stats.kurtosis(log_returns, fisher=True)
-        assert excess_kurt > 0.0, (
-            f"Rough Bergomi should produce fat tails, excess_kurt={excess_kurt:.3f}"
-        )
-
-    def test_rough_bergomi_negative_rho_skew(self):
-        """Negative rho should produce negatively skewed returns."""
-        model = RoughBergomi(H=0.1, xi=0.04, eta=1.0, rho=-0.7, mu=0.0)
-        S, _ = model.simulate(100.0, 1.0, n_paths=20000, n_steps=500, random_state=42)
-
-        terminal = S[:, -1]
-        valid = terminal > 0
-        log_returns = np.log(terminal[valid] / S[valid, 0])
-        skew = stats.skew(log_returns)
-        assert skew < -0.1, f"Negative rho should produce negative skew, got {skew:.3f}"
-
-    def test_variance_initial_level_matches_xi(self):
-        """V(0) should match xi for all paths."""
-        xi = 0.06
-        model = RoughBergomi(H=0.1, xi=xi, eta=1.5, rho=-0.7)
-        _, V = model.simulate(100.0, 1.0, n_paths=100, n_steps=100, random_state=42)
-
-        np.testing.assert_allclose(V[:, 0], xi, rtol=1e-10)

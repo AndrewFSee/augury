@@ -6,12 +6,10 @@ the same harness, the same rolling window and the same forecast origins:
   Baselines     gaussian (rolling vol), ewma (RiskMetrics 0.94),
                 historical simulation, laplace (the CrunchDAO winner)
   Vol models    gjr-normal, gjr-skewt, fhs (filtered historical sim), har
-  Regime models regime-hmm (ProbabilisticForecaster),
-                ensemble (EnsembleForecaster: Heston/Merton/RS/RB)
 
-Part 1 evaluates the fast models every day on several ETFs.
-Part 2 adds the regime models on SPY, evaluated monthly (they are slow and
-only condition on data at refit time), with all models on the same dates.
+All models are evaluated every day on several ETFs. The regime-switching and
+four-engine ensemble forecasters were also scored (monthly, on SPY) before
+being archived; that run is reproducible at git tag ``pre-augury-archive``.
 
 Scores are CRPS in log-return units (lower is better). ``skill`` is the
 CRPS improvement over the rolling-Gaussian baseline and ``dm_p`` the
@@ -31,9 +29,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from synthquant.ensemble_forecast import EnsembleForecaster
 from synthquant.evaluation import walk_forward
-from synthquant.forecast import ProbabilisticForecaster
 from synthquant.forecasters import (
     FilteredHistoricalSimulation,
     GaussianForecaster,
@@ -41,7 +37,6 @@ from synthquant.forecasters import (
     HARForecaster,
     HistoricalSimulation,
     LaplaceForecaster,
-    PathModelForecaster,
 )
 
 warnings.filterwarnings("ignore")
@@ -83,9 +78,8 @@ def show(title: str, df: pd.DataFrame) -> None:
 t_start = time.time()
 data = {t: load_log_returns(t) for t in TICKERS}
 
-# --- Part 1: fast models, daily origins, several assets ---------------------
 print("=" * 100)
-print("PART 1  Fast models, daily walk-forward")
+print("Walk-forward bake-off, daily origins")
 print(f"        lookback={LOOKBACK}d refit={REFIT_EVERY}d horizons={HORIZONS} samples={N_SAMPLES}")
 print("=" * 100)
 
@@ -142,36 +136,5 @@ print("\n" + "=" * 100)
 print("CRPS skill vs rolling Gaussian (positive = better), averaged over assets")
 print("=" * 100)
 print(avg.sort_values("avg_h1", ascending=False).to_string(float_format=lambda x: f"{x:+.2%}"))
-
-# --- Part 2: add the regime models on SPY, monthly origins ------------------
-print("\n" + "=" * 100)
-print("PART 2  SPY, monthly origins: fast models vs regime / ensemble forecasters")
-print("=" * 100)
-models = fast_models() + [
-    PathModelForecaster(
-        lambda: ProbabilisticForecaster(n_paths=N_SAMPLES, random_state=0), name="regime-hmm"
-    ),
-    PathModelForecaster(
-        lambda: EnsembleForecaster(n_paths=N_SAMPLES, random_state=0, vol_model="GJRGARCH"),
-        name="ensemble",
-    ),
-]
-t0 = time.time()
-res = walk_forward(
-    data["SPY"],
-    models,
-    horizons=HORIZONS,
-    lookback=LOOKBACK,
-    refit_every=REFIT_EVERY,
-    eval_every=REFIT_EVERY,
-    n_samples=N_SAMPLES,
-)
-print(f"({time.time() - t0:.0f}s, fit failures: {res.fit_failures})")
-show(
-    "Scores",
-    res.summary()[
-        ["model", "horizon", "n", "crps", "skill", "dm_p", "pit_ks_p", "cov_50", "cov_90"]
-    ],
-)
 
 print(f"\nTotal runtime {time.time() - t_start:.0f}s")

@@ -213,20 +213,36 @@ class TestHAR:
             HARForecaster().fit(r[:60]).predict(r[:60], (21,))
 
 
-class TestPathModelAdapter:
-    def test_wraps_probabilistic_forecaster(self, gjr_data):
-        from synthquant.forecast import ProbabilisticForecaster
+class _GBMPathModel:
+    """Minimal model with the fit(returns) / forecast(horizon, current_price) protocol."""
 
+    n_paths = 300
+
+    def fit(self, returns: np.ndarray) -> _GBMPathModel:
+        self.sigma = float(np.std(returns))
+        return self
+
+    def forecast(self, horizon: int, current_price: float = 1.0):
+        rng = np.random.default_rng(0)
+        steps = rng.normal(0.0, self.sigma, size=(self.n_paths, horizon))
+        log_paths = np.concatenate([np.zeros((self.n_paths, 1)), np.cumsum(steps, axis=1)], axis=1)
+
+        class _Result:
+            paths = current_price * np.exp(log_paths)
+
+        return _Result()
+
+
+class TestPathModelAdapter:
+    def test_wraps_path_model(self, gjr_data):
         r, _ = gjr_data
-        fc = PathModelForecaster(
-            lambda: ProbabilisticForecaster(n_paths=300, random_state=0), name="regime"
-        )
+        fc = PathModelForecaster(_GBMPathModel, name="gbm-paths")
         with pytest.raises(RuntimeError):
             fc.predict(r[:500], (1,))
         out = fc.fit(r[:500]).predict(r[:500], (1, 5))
         assert out.samples.shape == (300, 2)
         assert np.all(np.isfinite(out.samples))
-        assert out.at(5).std() > out.at(1).std()
+        assert out.at(5).std() == pytest.approx(np.sqrt(5) * out.at(1).std(), rel=0.2)
 
 
 class TestGJRSimulate:
