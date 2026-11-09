@@ -28,6 +28,7 @@ dependencies = [
     "scipy>=1.10",
     "pandas>=2.0",
     "polars>=0.19",
+    "pyarrow>=14",  # Parquet engine used by augury.data.storage
     "arch>=6.0",
     "hmmlearn>=0.3",
     "statsmodels>=0.14",
