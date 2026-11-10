@@ -118,7 +118,7 @@ Optional FastAPI server exposing all core functionality as REST and WebSocket en
 
 ### `dashboard`
 
-Streamlit-based interactive dashboard with Plotly charts for fan charts, regime timelines, volatility surfaces, drawdown distributions, and PIT histograms.
+Streamlit risk monitor (`dashboard/app.py`) on real prices: forecast fan chart, return distribution, VaR / ES table and a walk-forward VaR track record with a PIT histogram. Its calculations live in `augury.monitoring`, which `scripts/publish_to_hub.py` also uses to publish nightly forecasts to the market-compass hub.
 
 ---
 

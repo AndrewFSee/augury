@@ -200,6 +200,12 @@ pip install "augury[dashboard]"
 streamlit run dashboard/app.py
 ```
 
+The risk monitor downloads prices for any ticker, shows the next 1-63 days' forecast
+distribution (fan chart, VaR / ES, price ranges, optional drift and volatility views) and
+scores every daily forecast since 2016 against what followed (VaR breaches, Basel zone,
+Kupiec / Christoffersen tests, PIT histogram). The same numbers are published nightly to
+the market-compass hub by `scripts/publish_to_hub.py`.
+
 ---
 
 ## Running Tests

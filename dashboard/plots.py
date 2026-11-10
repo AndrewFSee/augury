@@ -1,4 +1,4 @@
-"""Plotly figure generators for the Augury dashboard."""
+"""Plotly figures for the augury dashboard."""
 
 from __future__ import annotations
 
@@ -9,286 +9,88 @@ try:
     import plotly.graph_objects as go
 except ImportError as e:
     raise ImportError(
-        "Plotly is required for dashboard plots. "
-        "Install with: pip install augury[dashboard]"
+        "Plotly is required for dashboard plots. Install with: pip install augury[dashboard]"
     ) from e
 
-__all__ = [
-    "plot_fan_chart",
-    "plot_regime_timeline",
-    "plot_vol_surface",
-    "plot_drawdown_distribution",
-    "plot_pit_histogram",
-]
+__all__ = ["fan_chart", "return_histogram", "track_chart", "plot_pit_histogram"]
+
+TEAL, GREY, RED, AMBER = "#2BB5A6", "#9AA5B1", "#E4572E", "#F2C14E"
+_LAYOUT = {"margin": {"l": 0, "r": 0, "t": 10, "b": 0},
+           "legend": {"orientation": "h", "y": 1.1, "x": 0},
+           "paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)"}
 
 
-def plot_fan_chart(
-    paths: np.ndarray,
-    dates: pd.DatetimeIndex,
-    title: str = "Monte Carlo Fan Chart",
-    percentiles: list[tuple[float, float]] | None = None,
-    n_sample_paths: int = 50,
-) -> go.Figure:
-    """Create a fan chart showing percentile bands of simulated paths.
+def fan_chart(history: pd.Series, bands: pd.DataFrame, height: int = 340) -> go.Figure:
+    """Recent closes followed by the forecast's 50% / 90% price bands and median.
 
     Args:
-        paths: Array of shape (n_paths, n_steps+1).
-        dates: DatetimeIndex of length n_steps+1.
-        title: Chart title.
-        percentiles: List of (lower, upper) percentile pairs for shading.
-            Defaults to [(5,95), (10,90), (25,75)].
-        n_sample_paths: Number of individual paths to overlay.
-
-    Returns:
-        Plotly Figure.
+        history: Recent closes, dated.
+        bands: Output of ``PriceForecast.bands()`` with columns q5, q25, q50, q75, q95.
     """
-    if percentiles is None:
-        percentiles = [(5, 95), (10, 90), (25, 75)]
-
+    last_date, last = history.index[-1], float(history.iloc[-1])
+    x = [last_date, *bands.index]
     fig = go.Figure()
-    colors = ["rgba(68, 114, 196, 0.15)", "rgba(68, 114, 196, 0.20)", "rgba(68, 114, 196, 0.25)"]
-
-    for (lo, hi), color in zip(percentiles, colors, strict=False):
-        lower = np.percentile(paths, lo, axis=0)
-        upper = np.percentile(paths, hi, axis=0)
-        fig.add_trace(
-            go.Scatter(
-                x=list(dates) + list(dates[::-1]),
-                y=list(upper) + list(lower[::-1]),
-                fill="toself",
-                fillcolor=color,
-                line={"color": "rgba(0,0,0,0)"},
-                name=f"P{lo}–P{hi}",
-                showlegend=True,
-            )
-        )
-
-    # Median
-    median = np.median(paths, axis=0)
-    fig.add_trace(
-        go.Scatter(
-            x=dates,
-            y=median,
-            line={"color": "rgb(68, 114, 196)", "width": 2},
-            name="Median",
-        )
-    )
-
-    # Sample paths
-    rng = np.random.default_rng(42)
-    sample_idx = rng.choice(paths.shape[0], size=min(n_sample_paths, paths.shape[0]), replace=False)
-    for i in sample_idx:
-        fig.add_trace(
-            go.Scatter(
-                x=dates,
-                y=paths[i],
-                line={"color": "rgba(150,150,150,0.2)", "width": 0.5},
-                showlegend=False,
-            )
-        )
-
-    fig.update_layout(
-        title=title,
-        xaxis_title="Date",
-        yaxis_title="Price",
-        template="plotly_white",
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
-    )
+    fig.add_trace(go.Scatter(x=history.index, y=history, mode="lines", name="close",
+                             line={"width": 1.6, "color": GREY},
+                             hovertemplate="%{x|%b %d}: %{y:,.2f}<extra></extra>"))
+    for lo, hi, alpha, name in (("q5", "q95", 0.22, "90% range"), ("q25", "q75", 0.42, "50% range")):
+        fig.add_trace(go.Scatter(x=x, y=[last, *bands[hi]], mode="lines", line={"width": 0},
+                                 hoverinfo="skip", showlegend=False))
+        fig.add_trace(go.Scatter(x=x, y=[last, *bands[lo]], mode="lines", line={"width": 0},
+                                 fill="tonexty", fillcolor=f"rgba(43,181,166,{alpha})", name=name,
+                                 hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=x, y=[last, *bands["q50"]], mode="lines", name="median",
+                             line={"width": 2, "color": TEAL},
+                             hovertemplate="%{x|%b %d}: %{y:,.2f}<extra>median</extra>"))
+    fig.update_layout(height=height, hovermode="x unified", **_LAYOUT)
     return fig
 
 
-def plot_regime_timeline(
-    dates: pd.DatetimeIndex,
-    regimes: np.ndarray,
-    prices: np.ndarray,
-    title: str = "Regime Timeline",
-) -> go.Figure:
-    """Plot price series with regime-shaded background.
-
-    Args:
-        dates: DatetimeIndex of length n.
-        regimes: Integer array of regime labels, shape (n,).
-        prices: Price series, shape (n,).
-        title: Chart title.
-
-    Returns:
-        Plotly Figure.
-    """
-    palette = [
-        "rgba(255, 99, 71, 0.25)",
-        "rgba(30, 144, 255, 0.25)",
-        "rgba(50, 205, 50, 0.25)",
-        "rgba(255, 165, 0, 0.25)",
-    ]
-
-    fig = go.Figure()
-    n_regimes = int(np.max(regimes)) + 1
-
-    # Shaded regime regions
-    for regime_id in range(n_regimes):
-        mask = regimes == regime_id
-        color = palette[regime_id % len(palette)]
-        in_regime = False
-        start_idx = 0
-        for i, in_r in enumerate(mask):
-            if in_r and not in_regime:
-                start_idx = i
-                in_regime = True
-            elif not in_r and in_regime:
-                fig.add_vrect(
-                    x0=dates[start_idx],
-                    x1=dates[i - 1],
-                    fillcolor=color,
-                    opacity=1.0,
-                    layer="below",
-                    line_width=0,
-                )
-                in_regime = False
-        if in_regime:
-            fig.add_vrect(
-                x0=dates[start_idx],
-                x1=dates[-1],
-                fillcolor=color,
-                opacity=1.0,
-                layer="below",
-                line_width=0,
-                annotation_text=f"Regime {regime_id}",
-            )
-
-    fig.add_trace(
-        go.Scatter(
-            x=dates,
-            y=prices,
-            line={"color": "black", "width": 1.5},
-            name="Price",
-        )
-    )
-    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Price", template="plotly_white")
+def return_histogram(returns: np.ndarray, var_95: float, var_99: float, height: int = 300) -> go.Figure:
+    """Histogram of simulated simple returns with the 95% / 99% VaR marked."""
+    lo, hi = np.quantile(returns, [0.002, 0.998])  # drop the extreme tails rather than pile them at the edges
+    counts, edges = np.histogram(returns[(returns >= lo) & (returns <= hi)], bins=80)
+    mid = 0.5 * (edges[:-1] + edges[1:])
+    colors = [RED if m <= var_99 else AMBER if m <= var_95 else GREY for m in mid]
+    fig = go.Figure(go.Bar(x=mid, y=counts / counts.sum(), marker_color=colors, marker_line_width=0,
+                           hovertemplate="%{x:+.1%}: %{y:.1%} of outcomes<extra></extra>"))
+    for v, label, side in ((var_95, "VaR 95%", "top right"), (var_99, "VaR 99%", "top left")):
+        fig.add_vline(x=v, line_dash="dot", line_width=1, annotation_text=f"{label}<br>{v:+.1%}",
+                      annotation_position=side)
+    fig.update_layout(height=height, bargap=0.05, showlegend=False,
+                      xaxis={"tickformat": ".0%"}, yaxis={"tickformat": ".0%"}, **_LAYOUT)
     return fig
 
 
-def plot_vol_surface(
-    strikes: np.ndarray,
-    maturities: np.ndarray,
-    vols: np.ndarray,
-    title: str = "Implied Volatility Surface",
-) -> go.Figure:
-    """Create a 3D implied volatility surface.
+def track_chart(track: pd.DataFrame, height: int = 320) -> go.Figure:
+    """Daily returns against the VaR forecast made the night before.
 
     Args:
-        strikes: Array of shape (n_strikes,).
-        maturities: Array of shape (n_maturities,).
-        vols: Array of shape (n_maturities, n_strikes).
-        title: Chart title.
-
-    Returns:
-        Plotly Figure with 3D surface.
+        track: Columns ``date`` (outcome date), ``ret``, ``v1`` / ``v5`` (1% / 5% VaR) and
+            ``hit_1`` (breach of the 1% VaR), all as simple returns.
     """
-    fig = go.Figure(
-        data=[
-            go.Surface(
-                x=strikes,
-                y=maturities,
-                z=vols,
-                colorscale="Viridis",
-                colorbar={"title": "IV"},
-            )
-        ]
-    )
-    fig.update_layout(
-        title=title,
-        scene={
-            "xaxis_title": "Strike",
-            "yaxis_title": "Maturity (years)",
-            "zaxis_title": "Implied Vol",
-        },
-        template="plotly_white",
-    )
+    hit = track["hit_1"].astype(bool).to_numpy()
+    fig = go.Figure([
+        go.Scatter(x=track["date"], y=track["ret"], mode="markers", name="daily return",
+                   marker={"size": np.where(hit, 8, 4), "color": np.where(hit, RED, GREY)},
+                   hovertemplate="%{x|%b %d, %Y}: %{y:+.2%}<extra></extra>"),
+        go.Scatter(x=track["date"], y=track["v5"], mode="lines", name="95% VaR",
+                   line={"width": 1, "color": AMBER}, hovertemplate="%{y:+.2%}<extra>95% VaR</extra>"),
+        go.Scatter(x=track["date"], y=track["v1"], mode="lines", name="99% VaR",
+                   line={"width": 1.4, "color": RED}, hovertemplate="%{y:+.2%}<extra>99% VaR</extra>"),
+    ])
+    fig.update_layout(height=height, yaxis={"tickformat": ".0%"}, hovermode="closest", **_LAYOUT)
     return fig
 
 
-def plot_drawdown_distribution(
-    max_drawdowns: np.ndarray,
-    title: str = "Max Drawdown Distribution",
-    n_bins: int = 50,
-) -> go.Figure:
-    """Histogram of maximum drawdowns across simulated paths.
-
-    Args:
-        max_drawdowns: Array of shape (n_paths,) with max drawdown values.
-        title: Chart title.
-        n_bins: Number of histogram bins.
-
-    Returns:
-        Plotly Figure.
-    """
-    fig = go.Figure(
-        data=[
-            go.Histogram(
-                x=max_drawdowns * 100,
-                nbinsx=n_bins,
-                marker_color="rgba(68, 114, 196, 0.7)",
-                name="Max Drawdown",
-            )
-        ]
-    )
-    mean_dd = float(np.mean(max_drawdowns) * 100)
-    fig.add_vline(
-        x=mean_dd,
-        line_dash="dash",
-        line_color="red",
-        annotation_text=f"Mean: {mean_dd:.1f}%",
-    )
-    fig.update_layout(
-        title=title,
-        xaxis_title="Max Drawdown (%)",
-        yaxis_title="Frequency",
-        template="plotly_white",
-    )
-    return fig
-
-
-def plot_pit_histogram(
-    pit_values: np.ndarray,
-    title: str = "PIT Histogram (Calibration Check)",
-    n_bins: int = 10,
-) -> go.Figure:
-    """Probability Integral Transform (PIT) histogram for forecast calibration.
-
-    A uniform histogram indicates a well-calibrated forecast.
-
-    Args:
-        pit_values: Array of PIT values in [0, 1].
-        title: Chart title.
-        n_bins: Number of bins.
-
-    Returns:
-        Plotly Figure.
-    """
+def plot_pit_histogram(pit_values: np.ndarray, n_bins: int = 10, height: int = 260) -> go.Figure:
+    """PIT histogram: flat means calibrated; U-shaped = too narrow; hump = too wide."""
     counts, edges = np.histogram(pit_values, bins=n_bins, range=(0, 1))
-    bin_centers = 0.5 * (edges[:-1] + edges[1:])
-    uniform_level = len(pit_values) / n_bins
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=bin_centers,
-            y=counts,
-            width=1.0 / n_bins * 0.9,
-            marker_color="rgba(68, 114, 196, 0.7)",
-            name="PIT counts",
-        )
-    )
-    fig.add_hline(
-        y=uniform_level,
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Uniform (ideal)",
-    )
-    fig.update_layout(
-        title=title,
-        xaxis_title="PIT Value",
-        yaxis_title="Count",
-        template="plotly_white",
-    )
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    share = counts / max(counts.sum(), 1)
+    fig = go.Figure(go.Bar(x=centers, y=share, width=0.9 / n_bins, marker_color=TEAL,
+                           hovertemplate="PIT %{x:.2f}: %{y:.1%}<extra></extra>"))
+    fig.add_hline(y=1 / n_bins, line_dash="dash", line_color=RED, annotation_text="calibrated")
+    fig.update_layout(height=height, showlegend=False, xaxis={"title": "PIT", "range": [0, 1]},
+                      yaxis={"tickformat": ".0%"}, **_LAYOUT)
     return fig
