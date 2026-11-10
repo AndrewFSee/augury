@@ -37,6 +37,32 @@ class HestonEngine(SimulationEngine):
     ) -> np.ndarray:
         """Simulate Heston price paths via the Andersen (2008) QE scheme.
 
+        See :meth:`simulate_with_variance` for the arguments.
+
+        Returns:
+            Array of shape (n_paths, n_steps+1) with simulated prices.
+        """
+        S, _ = self.simulate_with_variance(
+            n_paths, n_steps, dt, S0, v0, mu, kappa, theta, sigma_v, rho, random_state
+        )
+        return S
+
+    def simulate_with_variance(
+        self,
+        n_paths: int,
+        n_steps: int,
+        dt: float,
+        S0: float = 100.0,
+        v0: float = 0.04,
+        mu: float = 0.05,
+        kappa: float = 2.0,
+        theta: float = 0.04,
+        sigma_v: float = 0.3,
+        rho: float = -0.7,
+        random_state: int | np.random.Generator | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Simulate Heston price and variance paths via the Andersen (2008) QE scheme.
+
         Args:
             n_paths: Number of simulation paths.
             n_steps: Number of time steps.
@@ -51,7 +77,7 @@ class HestonEngine(SimulationEngine):
             random_state: Random seed or Generator.
 
         Returns:
-            Array of shape (n_paths, n_steps+1) with simulated prices.
+            Tuple ``(prices, variances)``, each of shape (n_paths, n_steps+1).
         """
         rng = np.random.default_rng(random_state)
 
@@ -126,4 +152,4 @@ class HestonEngine(SimulationEngine):
             S[:, t + 1] = S[:, t] * np.exp(log_step)
 
         logger.debug(f"HestonEngine QE simulated {n_paths} paths x {n_steps} steps")
-        return S
+        return S, V
