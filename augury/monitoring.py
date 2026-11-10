@@ -58,8 +58,23 @@ HORIZONS: tuple[int, ...] = (1, 5, 21)
 VAR_LEVELS: tuple[float, ...] = (0.01, 0.05)
 INTERVAL_LEVELS: tuple[float, ...] = (0.5, 0.9)
 _REFIT = 21
-_TRACK_COLUMNS = ["origin", "model", "horizon", "y", "crps", "pit", "std",
-                  "var_1", "hit_1", "var_5", "hit_5", "cov_50", "width_50", "cov_90", "width_90"]
+_TRACK_COLUMNS = [
+    "origin",
+    "model",
+    "horizon",
+    "y",
+    "crps",
+    "pit",
+    "std",
+    "var_1",
+    "hit_1",
+    "var_5",
+    "hit_5",
+    "cov_50",
+    "width_50",
+    "cov_90",
+    "width_90",
+]
 
 
 def last_final_session(now: datetime | None = None) -> date:
@@ -120,8 +135,9 @@ def live_forecast(
         (price interval), ``median`` and ``p_up``. ``bands`` has price quantiles
         ``q5 .. q95`` for each day ``1..horizon``, indexed by forecast date.
     """
-    fc = forecast_prices(prices, horizon=horizon, forecaster=model,
-                         n_samples=n_samples, random_state=random_state)
+    fc = forecast_prices(
+        prices, horizon=horizon, forecaster=model, n_samples=n_samples, random_state=random_state
+    )
     bands = fc.bands((0.05, 0.25, 0.5, 0.75, 0.95))
     bands.index.name = "date"
     return risk_table(fc, [h for h in HORIZONS if h <= horizon]), bands
@@ -133,20 +149,22 @@ def risk_table(fc: PriceForecast, horizons: Sequence[int]) -> pd.DataFrame:
     for h in horizons:
         logr = fc.returns.samples[:, h - 1]
         p = fc.prices[:, h - 1]
-        rows.append({
-            "horizon": h,
-            "as_of": fc.as_of,
-            "last_price": fc.last_price,
-            "vol_ann": float(np.std(logr) * np.sqrt(252 / h)),
-            "var_99": fc.value_at_risk(0.01, h),
-            "var_95": fc.value_at_risk(0.05, h),
-            "es_99": fc.expected_shortfall(0.01, h),
-            "es_95": fc.expected_shortfall(0.05, h),
-            "lo_90": float(np.quantile(p, 0.05)),
-            "median": float(np.median(p)),
-            "hi_90": float(np.quantile(p, 0.95)),
-            "p_up": fc.prob_above(fc.last_price, h),
-        })
+        rows.append(
+            {
+                "horizon": h,
+                "as_of": fc.as_of,
+                "last_price": fc.last_price,
+                "vol_ann": float(np.std(logr) * np.sqrt(252 / h)),
+                "var_99": fc.value_at_risk(0.01, h),
+                "var_95": fc.value_at_risk(0.05, h),
+                "es_99": fc.expected_shortfall(0.01, h),
+                "es_95": fc.expected_shortfall(0.05, h),
+                "lo_90": float(np.quantile(p, 0.05)),
+                "median": float(np.median(p)),
+                "hi_90": float(np.quantile(p, 0.95)),
+                "p_up": fc.prob_above(fc.last_price, h),
+            }
+        )
     risk = pd.DataFrame(rows)
     risk["model"] = fc.model
     return risk
@@ -197,9 +215,17 @@ def track_record(
             keep = previous[(previous["origin"] < first) & previous["model"].isin(list(models))]
     if len(r) < DEFAULT_LOOKBACK + 1 or r.index[-1] < first:
         return previous if previous is not None else pd.DataFrame(columns=_TRACK_COLUMNS)
-    res = walk_forward(r, dict(models), horizons=HORIZONS, lookback=DEFAULT_LOOKBACK,
-                       refit_every=_REFIT, n_samples=n_samples, var_levels=VAR_LEVELS,
-                       interval_levels=INTERVAL_LEVELS, start=first)
+    res = walk_forward(
+        r,
+        dict(models),
+        horizons=HORIZONS,
+        lookback=DEFAULT_LOOKBACK,
+        refit_every=_REFIT,
+        n_samples=n_samples,
+        var_levels=VAR_LEVELS,
+        interval_levels=INTERVAL_LEVELS,
+        start=first,
+    )
     new = res.records[_TRACK_COLUMNS]
     out = new if keep is None else pd.concat([keep[_TRACK_COLUMNS], new], ignore_index=True)
     return out.sort_values(["origin", "model", "horizon"]).reset_index(drop=True)
@@ -231,23 +257,36 @@ def score_track(
     if df.empty or not (df["model"] == model).any():
         return {"n": 0}
     one = df[(df["model"] == model) & (df["horizon"] == 1)].sort_values("origin")
-    result = WalkForwardResult(records=df, horizons=HORIZONS, var_levels=VAR_LEVELS,
-                               interval_levels=INTERVAL_LEVELS, eval_every=1,
-                               baseline=baseline)
+    result = WalkForwardResult(
+        records=df,
+        horizons=HORIZONS,
+        var_levels=VAR_LEVELS,
+        interval_levels=INTERVAL_LEVELS,
+        eval_every=1,
+        baseline=baseline,
+    )
     bt_all = result.var_backtest(1).set_index(["model", "alpha"]).loc[model]
     recent_rows = df[(df["horizon"] == 1) & df["origin"].isin(one["origin"].iloc[-recent:])]
-    recent_result = WalkForwardResult(records=recent_rows, horizons=HORIZONS, var_levels=VAR_LEVELS,
-                                      interval_levels=INTERVAL_LEVELS, eval_every=1)
+    recent_result = WalkForwardResult(
+        records=recent_rows,
+        horizons=HORIZONS,
+        var_levels=VAR_LEVELS,
+        interval_levels=INTERVAL_LEVELS,
+        eval_every=1,
+    )
     bt_recent = recent_result.var_backtest(1).set_index(["model", "alpha"]).loc[model]
     var = {}
     for a in VAR_LEVELS:
         full, last = bt_all.loc[a], bt_recent.loc[a]
         var[f"{a:g}"] = {
-            "breaches": int(full["violations"]), "rate": float(full["rate"]),
+            "breaches": int(full["violations"]),
+            "rate": float(full["rate"]),
             "kupiec_p": float(full["kupiec_p"]),
             "christoffersen_p": float(full["christoffersen_p"]),
-            "recent_n": int(last["n"]), "recent_breaches": int(last["violations"]),
-            "recent_expected": float(last["n"] * a), "recent_zone": str(last["basel"]),
+            "recent_n": int(last["n"]),
+            "recent_breaches": int(last["violations"]),
+            "recent_expected": float(last["n"] * a),
+            "recent_zone": str(last["basel"]),
         }
     summ = result.summary().set_index(["model", "horizon"])
     out: dict = {
@@ -255,14 +294,23 @@ def score_track(
         "since": one["origin"].iloc[0],
         "through": one["origin"].iloc[-1],
         "var": var,
-        "coverage_90": {int(h): float(summ.loc[(model, h), "cov_90"]) for h in HORIZONS
-                        if (model, h) in summ.index},
-        "coverage_50": {int(h): float(summ.loc[(model, h), "cov_50"]) for h in HORIZONS
-                        if (model, h) in summ.index},
+        "coverage_90": {
+            int(h): float(summ.loc[(model, h), "cov_90"])
+            for h in HORIZONS
+            if (model, h) in summ.index
+        },
+        "coverage_50": {
+            int(h): float(summ.loc[(model, h), "cov_50"])
+            for h in HORIZONS
+            if (model, h) in summ.index
+        },
     }
     if baseline and (df["model"] == baseline).any():
-        out["skill"] = {int(h): float(summ.loc[(model, h), "skill"]) for h in HORIZONS
-                        if (model, h) in summ.index and pd.notna(summ.loc[(model, h), "skill"])}
+        out["skill"] = {
+            int(h): float(summ.loc[(model, h), "skill"])
+            for h in HORIZONS
+            if (model, h) in summ.index and pd.notna(summ.loc[(model, h), "skill"])
+        }
     return out
 
 

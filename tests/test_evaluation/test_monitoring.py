@@ -72,8 +72,9 @@ def test_track_record_extends_like_a_full_rebuild(prices, iv):
     start = prices.index[-130]
     full = track_record(prices, track_models("SPY", iv), start=start, n_samples=500)
     early = track_record(prices.iloc[:-40], track_models("SPY", iv), start=start, n_samples=500)
-    extended = track_record(prices, track_models("SPY", iv), previous=early, redo_days=30,
-                            n_samples=500)
+    extended = track_record(
+        prices, track_models("SPY", iv), previous=early, redo_days=30, n_samples=500
+    )
     key = ["origin", "model", "horizon"]
     assert len(extended) == len(full)
     a = extended.set_index(key).sort_index()
@@ -82,8 +83,10 @@ def test_track_record_extends_like_a_full_rebuild(prices, iv):
     # same fits on the same dates; only Monte Carlo noise differs
     assert np.allclose(a.loc[one, "std"], b.loc[one, "std"], rtol=0.1)
     # 21-day outcomes that were still open in `early` are filled in
-    assert a.xs(21, level="horizon").index.get_level_values("origin").max() > \
-        early[early["horizon"] == 21]["origin"].max()
+    assert (
+        a.xs(21, level="horizon").index.get_level_values("origin").max()
+        > early[early["horizon"] == 21]["origin"].max()
+    )
 
 
 def test_score_track(prices, iv):
