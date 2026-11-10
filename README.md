@@ -413,7 +413,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
 | `augury.api` | FastAPI server: `/risk/{symbol}` (GJR skew-t forecast) and `/regimes/{symbol}` on live prices, `/simulate` for parametric engines; WebSocket streams are synthetic demos |
-| `dashboard` | Streamlit interactive dashboard with Plotly charts |
+| `augury.monitoring` / `dashboard` | Daily risk monitor: today's 1/5/21-day forecast (VaR, ES, price bands) and a running out-of-sample track record (VaR breaches, Basel zone, coverage, skill vs GJR). `streamlit run dashboard/app.py` for any ticker; `scripts/publish_to_hub.py` publishes 28 tickers nightly to [market-compass](https://github.com/AndrewFSee/market-compass) |
 | `archive/` | Retired code (regime/ensemble forecasters, Rough Bergomi, forecast-driven allocators) — see [archive/README.md](archive/README.md) |
 
 ---
@@ -487,6 +487,8 @@ Or via a `.env` file in the project root.
 **Regime detection, evaluated** — `augury.evaluation.regimes` refits a detector on a rolling window and asks whether its signal is useful out of sample. On the same five ETFs (2012–2026) the HMM's crisis probability adds almost nothing to GJR-GARCH: R² for 21-day realized variance goes from 0.329 to 0.337 (0.344 with the multi-feature HMM). GJR's VaR breaches don't cluster by regime, and the regime flag catches drawdowns no earlier than a GJR-volatility flag that fires as often. The univariate HMM switches state 19–80 times a year; the multi-feature HMM (returns, signed vol, momentum) is the only stable one. Treat `augury.regime` as descriptive, not as a forecasting or risk signal. Also fixed: `HMMRegimeDetector.predict_proba_filtered` returned all-zero rows from the first extreme day onward (e.g. SPY +10.5% on 2025-04-09); it now filters in log space. Example 21, which fitted the HMM on its full history, was archived.
 
 **Volatility views** — `forecast_prices(target_vol=...)` sets your own volatility view, and `ImpliedVolForecaster` blends GJR with an implied-vol index (above). Both scale the whole forecast by one factor: rescaling only today's variance and letting GJR mean-revert pushed most of the change into the first few days and doubled 1-day VaR breaches. Example 26's VIX/SKEW/credit experiments predate the walk-forward harness and tune on the data they score; example 32 supersedes its VIX results.
+
+**Risk monitor** — the Streamlit dashboard was a synthetic GBM/Heston demo that ignored its ticker box. It is now a real-data risk monitor built on `augury.monitoring`: the default model (plus the implied-vol view on SPY, QQQ, IWM, TLT and GLD), a fan chart and VaR / ES at 1–63 days, optional drift and volatility views, and a daily walk-forward track record since 2016 with VaR breaches, Basel zone, Kupiec / Christoffersen tests and a PIT histogram. `scripts/publish_to_hub.py` publishes the same numbers for 28 ETFs and stocks to market-compass each night, extending the stored track record instead of recomputing it.
 
 **Cleanup** — one Heston simulator (`HestonModel` now uses `HestonEngine`'s QE scheme); the API's `/risk` and `/regimes` endpoints use real prices for the requested symbol instead of synthetic data.
 
