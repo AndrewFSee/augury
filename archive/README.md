@@ -20,6 +20,7 @@ than a rolling-volatility Gaussian, and the HMM forecaster no better than it.
 | `synthquant/regime/market_adjuster.py` | VIX/SKEW Bayesian adjustment of regime probabilities |
 | `synthquant/strategy/` | Signals, allocators and the signal tuner built on `ForecastResult` |
 | `tests/`, `examples/` | Their tests and the examples (06–25) that used them |
+| `examples/21_hmm_diagnostics.py` | HMM diagnostics fitted on the full history, so its "out-of-sample" checks used future parameters. Replaced by `augury.evaluation.regimes`. Imports `augury` and still runs. |
 
 ## Running it
 

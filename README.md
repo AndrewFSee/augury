@@ -393,7 +393,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | `augury.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
 | `augury.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
 | `augury.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
-| `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test |
+| `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test, out-of-sample regime-detector evaluation |
 | `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
 | `augury.api` | FastAPI REST + WebSocket server |
@@ -411,7 +411,6 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | 03 | `volatility_modeling` | Fit GARCH and Heston, compare forecasts |
 | 04 | `monte_carlo_simulation` | Regime-switching Monte Carlo with a fan chart summary |
 | 05 | `risk_analytics` | VaR, CVaR, drawdown and Greeks from simulated paths |
-| 21 | `hmm_diagnostics` | HMM regime detector accuracy and behaviour |
 | 26 | `external_data_experiment` | VIX / MOVE / SKEW / credit-spread enhancements to GJR-GARCH forecasts |
 | 27 | `parameter_tuning` | Grid search for the external-data enhancements in example 26 |
 | 28 | `var_backtesting` | **VaR backtesting report** — 8 models through the walk-forward harness, Kupiec / Christoffersen / Basel, crisis windows |
@@ -421,6 +420,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 
 Examples 06–25 used the archived regime and ensemble forecasters; they live in
 [archive/examples](archive/examples) and run at git tag `pre-augury-archive`.
+To evaluate a regime detector, use `augury.evaluation.regimes` (see Recent Changes).
 
 ```bash
 python examples/31_model_comparison.py
@@ -466,6 +466,8 @@ Or via a `.env` file in the project root.
 **New default forecaster** — GJR-GARCH with skew-t innovations via `forecast_prices()`, chosen by out-of-sample evidence (see Showcase). The regime-switching and ensemble forecasters were archived.
 
 **New modules** — `augury.forecasters` (one `fit`/`predict` interface for GJR, FHS, HAR, Laplace and baselines; correlated multi-asset simulation via `GJRGarchForecaster.simulate`) and `augury.evaluation` (walk-forward harness, CRPS/PIT/coverage, Kupiec/Christoffersen/Basel, Diebold-Mariano).
+
+**Regime detection, evaluated** — `augury.evaluation.regimes` refits a detector on a rolling window and asks whether its signal is useful out of sample. On the same five ETFs (2012–2026) the HMM's crisis probability adds almost nothing to GJR-GARCH: R² for 21-day realized variance goes from 0.329 to 0.337 (0.344 with the multi-feature HMM). GJR's VaR breaches don't cluster by regime, and the regime flag catches drawdowns no earlier than a GJR-volatility flag that fires as often. The univariate HMM switches state 19–80 times a year; the multi-feature HMM (returns, signed vol, momentum) is the only stable one. Treat `augury.regime` as descriptive, not as a forecasting or risk signal. Also fixed: `HMMRegimeDetector.predict_proba_filtered` returned all-zero rows from the first extreme day onward (e.g. SPY +10.5% on 2025-04-09); it now filters in log space. Example 21, which fitted the HMM on its full history, was archived.
 
 ---
 
