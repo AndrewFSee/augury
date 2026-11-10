@@ -68,6 +68,7 @@ class GJRGarchForecaster(ReturnForecaster):
         self._std_resid: np.ndarray | None = None
         self._resid_ts: np.ndarray | None = None
         self._ppf_table: tuple[np.ndarray, np.ndarray] | None = None
+        self._kappa: float | None = None
 
     # ------------------------------------------------------------------ fitting
     def fit(self, returns: np.ndarray) -> GJRGarchForecaster:
@@ -103,6 +104,7 @@ class GJRGarchForecaster(ReturnForecaster):
         self._resid_ts = z
         self._std_resid = np.sort(z[np.isfinite(z)])
         self._ppf_table = None
+        self._kappa = None
         if self.dist != "normal":
             # scipy's t / skew-t ppf is slow (root finding); invert a dense CDF
             # table once per fit instead. Linear interpolation on a 0.005-wide
@@ -147,7 +149,18 @@ class GJRGarchForecaster(ReturnForecaster):
         h = lfilter([1.0], [1.0, -p["beta"]], u, zi=[p["beta"] * h0])[0]
         return float(h[-1])
 
-    def expected_variance(self, history: np.ndarray, horizon: int) -> np.ndarray:
+    def _persistence(self) -> float:
+        """``alpha + beta + gamma * kappa`` with ``kappa = E[z^2 1(z < 0)]``."""
+        assert self._params is not None
+        p = self._params
+        if self._kappa is None:
+            z = self._innovations((np.arange(20000) + 0.5) / 20000)
+            self._kappa = float(np.mean(z**2 * (z < 0)) / np.mean(z**2))
+        return p["alpha"] + p["beta"] + p["gamma"] * self._kappa
+
+    def expected_variance(
+        self, history: np.ndarray, horizon: int, *, variance_scale: float = 1.0
+    ) -> np.ndarray:
         """Expected daily variances ``E[sigma^2_{t+k} | history]`` for k = 1..horizon.
 
         Uses the analytic GJR recursion
@@ -156,22 +169,55 @@ class GJRGarchForecaster(ReturnForecaster):
         (0.5 for symmetric ones). With a zero mean, the sum is the variance of
         the ``horizon``-period cumulative return.
 
+        Args:
+            history: Log returns up to the forecast origin.
+            horizon: Number of periods.
+            variance_scale: Multiplies the starting variance, as in
+                :meth:`simulate`.
+
         Returns:
             Array of shape ``(horizon,)`` in return units squared.
         """
         if horizon < 1:
             raise ValueError("horizon must be >= 1")
-        h = self._next_variance(history)
+        h = self._next_variance(history) * variance_scale
         assert self._params is not None
-        p = self._params
-        z = self._innovations((np.arange(20000) + 0.5) / 20000)
-        kappa = float(np.mean(z**2 * (z < 0)) / np.mean(z**2))
-        rho = p["alpha"] + p["beta"] + p["gamma"] * kappa
+        omega, rho = self._params["omega"], self._persistence()
         out = np.empty(horizon)
         for k in range(horizon):
             out[k] = h
-            h = p["omega"] + rho * h
+            h = omega + rho * h
         return out / self.scale**2
+
+    def variance_scale_for(
+        self, history: np.ndarray, horizon: int, target_variance: float
+    ) -> float:
+        """Starting-variance multiplier that makes the expected variance hit a target.
+
+        Solves ``sum(expected_variance(history, horizon, variance_scale=s)) =
+        target_variance`` for ``s``. The expected cumulative variance is affine
+        in ``s``, so this is exact. Passing ``s`` to :meth:`predict` or
+        :meth:`simulate` keeps the fitted dynamics (mean reversion, leverage
+        effect, skew-t shape) and only moves today's volatility.
+
+        Args:
+            history: Log returns up to the forecast origin.
+            horizon: Horizon the target refers to, in periods.
+            target_variance: Variance of the ``horizon``-period cumulative log
+                return, in return units squared (e.g. ``vol**2 * horizon / 252``
+                for an annualized ``vol``).
+
+        Returns:
+            The multiplier, floored at 0.01. The floor binds only when the
+            target is below what mean reversion alone delivers over the horizon.
+        """
+        if target_variance <= 0:
+            raise ValueError("target_variance must be positive")
+        c1 = float(self.expected_variance(history, horizon).sum())
+        c0 = float(self.expected_variance(history, horizon, variance_scale=0.0).sum())
+        if c1 - c0 <= 0:
+            return 1.0
+        return max((target_variance - c0) / (c1 - c0), 0.01)
 
     def innovation_cdf(self, z: np.ndarray | float) -> np.ndarray:
         """CDF of the fitted standardized innovation distribution.
@@ -200,12 +246,14 @@ class GJRGarchForecaster(ReturnForecaster):
         horizons: Sequence[int],
         n_samples: int = 2000,
         random_state: int | np.random.Generator | None = None,
+        *,
+        variance_scale: float = 1.0,
     ) -> ReturnForecast:
         hs = validate_horizons(horizons)
         rng = np.random.default_rng(random_state)
         u = rng.random((n_samples, hs[-1]))
         u[:, 0] = stratified_uniforms(n_samples, rng)
-        daily = self.simulate(history, hs[-1], uniforms=u)
+        daily = self.simulate(history, hs[-1], uniforms=u, variance_scale=variance_scale)
         cum = np.cumsum(daily, axis=1)
         return ReturnForecast(hs, cum[:, [h - 1 for h in hs]])
 

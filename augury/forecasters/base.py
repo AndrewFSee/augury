@@ -66,6 +66,12 @@ class ReturnForecaster(ABC):
     #: Short identifier used in evaluation tables.
     name: str = "base"
 
+    #: If True, :func:`~augury.evaluation.walk_forward` and
+    #: :func:`~augury.forecasters.forecast_prices` pass ``fit`` / ``predict``
+    #: a dated ``pd.Series`` instead of an array, so the model can look up
+    #: external data (e.g. implied vol) for the dates it sees.
+    needs_index: bool = False
+
     def fit(self, returns: np.ndarray) -> ReturnForecaster:
         """Estimate model parameters from a window of log returns."""
         return self

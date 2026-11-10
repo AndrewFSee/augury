@@ -23,6 +23,7 @@ from augury.forecasters.price import (
     default_forecaster,
     forecast_prices,
 )
+from augury.forecasters.views import ImpliedVolForecaster
 
 __all__ = [
     "forecast_prices",
@@ -38,4 +39,5 @@ __all__ = [
     "FilteredHistoricalSimulation",
     "HARForecaster",
     "PathModelForecaster",
+    "ImpliedVolForecaster",
 ]

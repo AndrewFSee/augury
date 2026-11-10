@@ -27,6 +27,10 @@ Eight models compared:
   8. Gaussian:    Reference baseline
 
 Same walk-forward framework as Example 25.
+
+Note: this predates ``augury.evaluation.walk_forward`` and example 27 tunes
+its constants on the same data it scores. For a leak-free test of implied-vol
+blending see example 32 and ``augury.forecasters.ImpliedVolForecaster``.
 """
 
 from __future__ import annotations
