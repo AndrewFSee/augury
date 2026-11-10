@@ -147,6 +147,45 @@ class GJRGarchForecaster(ReturnForecaster):
         h = lfilter([1.0], [1.0, -p["beta"]], u, zi=[p["beta"] * h0])[0]
         return float(h[-1])
 
+    def expected_variance(self, history: np.ndarray, horizon: int) -> np.ndarray:
+        """Expected daily variances ``E[sigma^2_{t+k} | history]`` for k = 1..horizon.
+
+        Uses the analytic GJR recursion
+        ``E[h_{k+1}] = omega + (alpha + beta + gamma * kappa) * E[h_k]`` with
+        ``kappa = E[z^2 1(z < 0)]`` under the fitted innovation distribution
+        (0.5 for symmetric ones). With a zero mean, the sum is the variance of
+        the ``horizon``-period cumulative return.
+
+        Returns:
+            Array of shape ``(horizon,)`` in return units squared.
+        """
+        if horizon < 1:
+            raise ValueError("horizon must be >= 1")
+        h = self._next_variance(history)
+        assert self._params is not None
+        p = self._params
+        z = self._innovations((np.arange(20000) + 0.5) / 20000)
+        kappa = float(np.mean(z**2 * (z < 0)) / np.mean(z**2))
+        rho = p["alpha"] + p["beta"] + p["gamma"] * kappa
+        out = np.empty(horizon)
+        for k in range(horizon):
+            out[k] = h
+            h = p["omega"] + rho * h
+        return out / self.scale**2
+
+    def innovation_cdf(self, z: np.ndarray | float) -> np.ndarray:
+        """CDF of the fitted standardized innovation distribution.
+
+        ``innovation_cdf(r / sqrt(h))`` is the PIT of a return ``r`` under a
+        one-step forecast with variance ``h`` (zero mean).
+        """
+        self._check_fitted()
+        z = np.asarray(z, dtype=float)
+        if self._ppf_table is not None:
+            cdf, grid = self._ppf_table
+            return np.interp(z, grid, cdf)
+        return np.asarray(self._dist_obj.cdf(z, self._dist_params), dtype=float)
+
     def _innovations(self, u: np.ndarray) -> np.ndarray:
         """Map uniforms to standardized (zero-mean, unit-variance) innovations."""
         if self._ppf_table is not None:

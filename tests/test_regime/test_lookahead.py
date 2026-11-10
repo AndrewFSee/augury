@@ -82,3 +82,22 @@ def test_filtered_at_cutoff_uses_only_past(regime_break_returns):
     long = det.predict_proba_filtered(returns)[cutoff - 1]
 
     np.testing.assert_allclose(short, long, atol=1e-10)
+
+
+@pytest.mark.parametrize("multivariate", [False, True])
+def test_filtered_survives_extreme_observation(regime_break_returns, multivariate):
+    """An observation far from every state must not zero out the filter.
+
+    Linear-space densities underflow to 0 for all states on such a point
+    (e.g. a +10% day), which used to leave every later row all-zero.
+    """
+    returns, _ = regime_break_returns
+    X = np.column_stack([returns, np.abs(returns)]) if multivariate else returns
+    det = HMMRegimeDetector(n_components=2, random_state=0).fit(X)
+    X_shock = np.array(X, copy=True)
+    X_shock[400] = X_shock[400] * 0 + 5.0  # ~170 std from the crisis state
+    proba = det.predict_proba_filtered(X_shock)
+    np.testing.assert_allclose(proba.sum(axis=1), 1.0, atol=1e-9)
+    assert np.isfinite(proba).all()
+    # filter recovers normal behaviour after the shock
+    np.testing.assert_allclose(proba[450:], det.predict_proba_filtered(X)[450:], atol=1e-6)
