@@ -1,5 +1,6 @@
 # Augury
 
+[![CI](https://github.com/AndrewFSee/augury/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndrewFSee/augury/actions/workflows/ci.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
 ![NumPy](https://img.shields.io/badge/numpy-%E2%89%A51.24-013243?logo=numpy&logoColor=white)
@@ -396,7 +397,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test, out-of-sample regime-detector evaluation |
 | `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
-| `augury.api` | FastAPI REST + WebSocket server |
+| `augury.api` | FastAPI server: `/risk/{symbol}` (GJR skew-t forecast) and `/regimes/{symbol}` on live prices, `/simulate` for parametric engines; WebSocket streams are synthetic demos |
 | `dashboard` | Streamlit interactive dashboard with Plotly charts |
 | `archive/` | Retired code (regime/ensemble forecasters, Rough Bergomi, forecast-driven allocators) — see [archive/README.md](archive/README.md) |
 
