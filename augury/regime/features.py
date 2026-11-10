@@ -313,6 +313,7 @@ def build_hmm_features(
     feature_names: list[str] | None = None,
     vol_lookback: int = 21,
     momentum_lookback: int = 5,
+    standardize: bool = True,
     **kwargs: int,
 ) -> np.ndarray:
     """Build a multivariate feature matrix from a 1-D return series.
@@ -325,11 +326,19 @@ def build_hmm_features(
             of :data:`ALL_FEATURE_NAMES`.
         vol_lookback: Window for realised vol rolling std.
         momentum_lookback: Window for trailing cumulative return.
+        standardize: Z-score each column using the mean and std of the
+            *whole* input. Every raw feature is causal (trailing windows
+            only), but full-sample z-scoring leaks future information into
+            early rows. For out-of-sample work pass ``False`` and
+            standardize with training-window statistics, as
+            :func:`augury.evaluation.regimes.rolling_regime_probabilities`
+            does.
         **kwargs: Additional parameter overrides forwarded to individual
             feature builders (e.g. ``skew_lookback=42``).
 
     Returns:
-        Array of shape ``(T, len(feature_names))`` with z-scored features.
+        Array of shape ``(T, len(feature_names))``, z-scored unless
+        ``standardize=False``.
     """
     if feature_names is None:
         feature_names = DEFAULT_FEATURE_NAMES
@@ -352,6 +361,8 @@ def build_hmm_features(
         cols.append(builder(r, params))
 
     features = np.column_stack(cols)
+    if not standardize:
+        return features
 
     # Z-score each column
     for col in range(features.shape[1]):

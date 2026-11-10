@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import numpy as np
+from scipy.special import logsumexp
 from scipy.stats import multivariate_normal, norm
 
 logger = logging.getLogger(__name__)
@@ -190,82 +191,41 @@ class HMMRegimeDetector:
         n, d = X.shape
         k = self.n_components
 
-        startprob = self._model.startprob_  # (k,)
-        transmat = self._model.transmat_  # (k, k)
+        return self._forward_filter(self._log_emissions(X, n, k, d))
 
+    def _log_emissions(self, X: np.ndarray, n: int, k: int, d: int) -> np.ndarray:
+        """Log emission densities, shape (n, k)."""
+        out = np.empty((n, k), dtype=float)
         if d == 1:
-            return self._forward_univariate(X.ravel(), n, k, startprob, transmat)
-        return self._forward_multivariate(X, n, k, d, startprob, transmat)
-
-    def _forward_univariate(
-        self,
-        x: np.ndarray,
-        n: int,
-        k: int,
-        startprob: np.ndarray,
-        transmat: np.ndarray,
-    ) -> np.ndarray:
-        """Forward pass for univariate observations."""
-        means = self._model.means_.ravel()  # (k,)
-        variances = np.array([abs(float(self._model.covars_[i].flat[0])) for i in range(k)])
-        stds = np.sqrt(variances)
-
-        alpha = np.empty((n, k), dtype=float)
-
-        emission_0 = norm.pdf(x[0], loc=means, scale=stds)
-        alpha[0] = startprob * emission_0
-        row_sum = alpha[0].sum()
-        if row_sum > 0:
-            alpha[0] /= row_sum
-
-        for t in range(1, n):
-            predicted = alpha[t - 1] @ transmat
-            emission_t = norm.pdf(x[t], loc=means, scale=stds)
-            alpha[t] = predicted * emission_t
-            row_sum = alpha[t].sum()
-            if row_sum > 0:
-                alpha[t] /= row_sum
-
-        return alpha
-
-    def _forward_multivariate(
-        self,
-        X: np.ndarray,
-        n: int,
-        k: int,
-        d: int,
-        startprob: np.ndarray,
-        transmat: np.ndarray,
-    ) -> np.ndarray:
-        """Forward pass for multivariate observations."""
-        means = self._model.means_  # (k, d)
-        covars = self._model.covars_  # (k, d, d) expanded
-
-        # Pre-build frozen multivariate normal distributions per state
-        mvn_pdfs = []
+            means = self._model.means_.ravel()
+            stds = np.sqrt([abs(float(self._model.covars_[i].flat[0])) for i in range(k)])
+            for i in range(k):
+                out[:, i] = norm.logpdf(X[:, 0], loc=means[i], scale=stds[i])
+            return out
         for i in range(k):
-            cov_i = covars[i]
             # Regularise: add small diagonal to prevent singular covariance
-            cov_i = cov_i + np.eye(d) * 1e-8
-            mvn_pdfs.append(multivariate_normal(mean=means[i], cov=cov_i))
+            cov_i = self._model.covars_[i] + np.eye(d) * 1e-8
+            out[:, i] = multivariate_normal(mean=self._model.means_[i], cov=cov_i).logpdf(X)
+        return out
 
-        alpha = np.empty((n, k), dtype=float)
+    def _forward_filter(self, log_b: np.ndarray) -> np.ndarray:
+        """Normalised forward recursion in log space.
 
-        emission_0 = np.array([mvn_pdfs[i].pdf(X[0]) for i in range(k)])
-        alpha[0] = startprob * emission_0
-        row_sum = alpha[0].sum()
-        if row_sum > 0:
-            alpha[0] /= row_sum
-
+        Working with log emissions keeps the filter alive on observations far
+        from every state (e.g. a +10% day), where linear-space densities
+        underflow to zero for all states and the recursion collapses to an
+        all-zero row from then on.
+        """
+        n, k = log_b.shape
+        log_a = np.log(np.maximum(self._model.transmat_, 1e-300))
+        log_start = np.log(np.maximum(self._model.startprob_, 1e-300))
+        log_alpha = np.empty((n, k), dtype=float)
+        prev = log_start + log_b[0]
+        log_alpha[0] = prev - logsumexp(prev)
         for t in range(1, n):
-            predicted = alpha[t - 1] @ transmat
-            emission_t = np.array([mvn_pdfs[i].pdf(X[t]) for i in range(k)])
-            alpha[t] = predicted * emission_t
-            row_sum = alpha[t].sum()
-            if row_sum > 0:
-                alpha[t] /= row_sum
-
-        return alpha
+            prev = logsumexp(log_alpha[t - 1][:, None] + log_a, axis=0) + log_b[t]
+            log_alpha[t] = prev - logsumexp(prev)
+        return np.exp(log_alpha)
 
     # ------------------------------------------------------------------ #
     # Parameter access
