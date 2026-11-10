@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import logging
-
 import numpy as np
-
-logger = logging.getLogger(__name__)
 
 __all__ = ["HestonModel"]
 
 
 class HestonModel:
-    """Heston (1993) stochastic volatility model.
+    """Heston (1993) stochastic volatility model: parameters plus simulation.
 
     dS = mu*S dt + sqrt(V)*S dW_S
     dV = kappa*(theta - V) dt + sigma_v*sqrt(V) dW_V
@@ -57,7 +53,12 @@ class HestonModel:
         n_steps: int,
         random_state: int | np.random.Generator | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Simulate Heston price and variance paths via Euler-Maruyama.
+        """Simulate Heston price and variance paths.
+
+        Delegates to :class:`~augury.simulation.engines.heston.HestonEngine`
+        (Andersen 2008 QE scheme), so there is one Heston simulator in the
+        package. QE keeps variance non-negative without the bias that
+        truncated Euler adds at large ``sigma_v`` or coarse steps.
 
         Args:
             S0: Initial asset price.
@@ -69,34 +70,18 @@ class HestonModel:
         Returns:
             Tuple of (price_paths, var_paths) each with shape (n_paths, n_steps+1).
         """
-        rng = np.random.default_rng(random_state)
-        dt = T / n_steps
+        from augury.simulation.engines.heston import HestonEngine
 
-        S = np.empty((n_paths, n_steps + 1))
-        V = np.empty((n_paths, n_steps + 1))
-        S[:, 0] = S0
-        V[:, 0] = self.v0
-
-        # Cholesky decomposition for correlated Brownians
-        cov = np.array([[1.0, self.rho], [self.rho, 1.0]])
-        L = np.linalg.cholesky(cov)
-
-        sqrt_dt = np.sqrt(dt)
-        for t in range(n_steps):
-            Z = rng.standard_normal((n_paths, 2))
-            corr = Z @ L.T  # (n_paths, 2)
-            Z_S, Z_V = corr[:, 0], corr[:, 1]
-
-            v_pos = np.maximum(V[:, t], 0.0)
-            sqrt_v = np.sqrt(v_pos)
-
-            S[:, t + 1] = S[:, t] * np.exp((self.mu - 0.5 * v_pos) * dt + sqrt_v * sqrt_dt * Z_S)
-            V[:, t + 1] = (
-                v_pos
-                + self.kappa * (self.theta - v_pos) * dt
-                + self.sigma_v * sqrt_v * sqrt_dt * Z_V
-            )
-            V[:, t + 1] = np.maximum(V[:, t + 1], 0.0)
-
-        logger.debug(f"Heston simulated {n_paths} paths x {n_steps} steps")
-        return S, V
+        return HestonEngine().simulate_with_variance(
+            n_paths=n_paths,
+            n_steps=n_steps,
+            dt=T / n_steps,
+            S0=S0,
+            v0=self.v0,
+            mu=self.mu,
+            kappa=self.kappa,
+            theta=self.theta,
+            sigma_v=self.sigma_v,
+            rho=self.rho,
+            random_state=random_state,
+        )

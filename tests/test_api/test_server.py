@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from augury.api.server import app
+from augury.api.server import app, get_price_loader
 
 
 @pytest.fixture()
@@ -128,42 +130,106 @@ class TestForecast:
         assert r1["std"] == r2["std"]
 
 
-# ── Regimes ───────────────────────────────────────────────────────────────────
+# ── Market-data endpoints (synthetic prices injected) ─────────────────────────
+
+
+def _synthetic_prices(symbol: str, n: int) -> pd.Series:
+    """Calm then volatile prices; the seed depends on the symbol."""
+    rng = np.random.default_rng(sum(map(ord, symbol)))
+    vol = np.where(np.arange(n) < n // 2, 0.007, 0.022)
+    r = rng.standard_normal(n) * vol
+    idx = pd.bdate_range(end="2026-11-06", periods=n)
+    return pd.Series(100 * np.exp(np.cumsum(r)), index=idx)
+
+
+@pytest.fixture()
+def data_client():
+    calls: list[tuple[str, int]] = []
+
+    def loader(symbol: str, n: int) -> pd.Series:
+        calls.append((symbol, n))
+        return _synthetic_prices(symbol, n)
+
+    app.dependency_overrides[get_price_loader] = lambda: loader
+    try:
+        yield TestClient(app), calls
+    finally:
+        app.dependency_overrides.clear()
 
 
 class TestRegimes:
-    def test_regimes_default(self, client) -> None:
+    def test_regimes_default(self, data_client) -> None:
+        client, calls = data_client
         resp = client.get("/regimes/SPY")
         assert resp.status_code == 200
         data = resp.json()
         assert data["symbol"] == "SPY"
+        assert data["as_of"] == "2026-11-06"
         assert data["n_regimes"] == 2
-        assert len(data["regime_proba"]) == 2
-        assert data["current_regime"] in (0, 1)
+        assert sum(data["regime_proba"]) == pytest.approx(1.0)
+        # the last half of the sample is the volatile regime
+        assert data["current_regime"] == 1
+        sig = [data["regime_params"][k]["sigma"] for k in ("0", "1")]
+        assert sig[0] < sig[1]
+        assert calls == [("SPY", 505)]
 
-    def test_regimes_custom_lookback(self, client) -> None:
-        resp = client.get("/regimes/AAPL?n_regimes=2&lookback=300")
+    def test_regimes_uses_symbol_and_lookback(self, data_client) -> None:
+        client, calls = data_client
+        resp = client.get("/regimes/AAPL?n_regimes=3&lookback=300&features=false")
         assert resp.status_code == 200
-        assert resp.json()["n_regimes"] == 2
-        assert len(resp.json()["regime_proba"]) == 2
+        assert len(resp.json()["regime_proba"]) == 3
+        assert calls == [("AAPL", 301)]
 
-
-# ── Risk ──────────────────────────────────────────────────────────────────────
+    def test_regimes_rejects_bad_params(self, data_client) -> None:
+        client, _ = data_client
+        assert client.get("/regimes/SPY?n_regimes=1").status_code == 422
+        assert client.get("/regimes/SPY?lookback=50").status_code == 422
 
 
 class TestRisk:
-    def test_risk_default(self, client) -> None:
-        resp = client.get("/risk/SPY?n_paths=500")
+    def test_risk_default(self, data_client) -> None:
+        client, calls = data_client
+        resp = client.get("/risk/SPY?n_paths=2000")
         assert resp.status_code == 200
         data = resp.json()
         assert data["symbol"] == "SPY"
-        assert "var_95" in data
-        assert "cvar_95" in data
-        assert "max_drawdown_mean" in data
-        assert "tail_ratio" in data
-        assert "sharpe_estimate" in data
+        assert data["horizon_days"] == 21
+        assert data["model"] == "gjr-skewt"
+        assert data["as_of"] == "2026-11-06"
+        assert data["cvar_95"] < data["var_95"] < 0
+        assert data["max_drawdown_mean"] < 0
+        assert calls == [("SPY", 505)]
 
-    def test_risk_custom_params(self, client) -> None:
-        resp = client.get("/risk/QQQ?n_paths=300&mu=0.10&sigma=0.30")
-        assert resp.status_code == 200
-        assert resp.json()["symbol"] == "QQQ"
+    def test_risk_scales_with_horizon(self, data_client) -> None:
+        client, _ = data_client
+        short = client.get("/risk/QQQ?n_paths=2000&horizon=5").json()
+        long = client.get("/risk/QQQ?n_paths=2000&horizon=63").json()
+        assert long["var_95"] < short["var_95"]
+
+    def test_risk_drift_moves_sharpe(self, data_client) -> None:
+        client, _ = data_client
+        flat = client.get("/risk/SPY?n_paths=2000").json()
+        up = client.get("/risk/SPY?n_paths=2000&annual_drift=0.3").json()
+        assert up["sharpe_estimate"] > flat["sharpe_estimate"]
+
+
+class TestPriceErrors:
+    def test_fetch_failure_is_502(self) -> None:
+        def broken(symbol: str, n: int) -> pd.Series:
+            raise RuntimeError("no network")
+
+        app.dependency_overrides[get_price_loader] = lambda: broken
+        try:
+            resp = TestClient(app).get("/risk/SPY")
+        finally:
+            app.dependency_overrides.clear()
+        assert resp.status_code == 502
+        assert "SPY" in resp.json()["detail"]
+
+    def test_short_history_is_422(self) -> None:
+        app.dependency_overrides[get_price_loader] = lambda: lambda s, n: _synthetic_prices(s, 50)
+        try:
+            resp = TestClient(app).get("/regimes/NEWIPO")
+        finally:
+            app.dependency_overrides.clear()
+        assert resp.status_code == 422

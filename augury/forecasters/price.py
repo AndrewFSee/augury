@@ -140,6 +140,7 @@ def forecast_prices(
     n_samples: int = 10_000,
     freq: str = "B",
     annual_drift: float = 0.0,
+    target_vol: float | None = None,
     periods_per_year: int = 252,
     random_state: int | np.random.Generator | None = None,
 ) -> PriceForecast:
@@ -168,7 +169,15 @@ def forecast_prices(
             express a view such as an equity risk premium (e.g. 0.05). It is
             deliberately not estimated: trailing means were tested out of
             sample and helped only assets that happened to trend.
-        periods_per_year: Periods per year for ``annual_drift`` (252 for
+        target_vol: Your view of annualized volatility over the ``horizon``
+            (e.g. 0.25). The forecast is scaled by one factor at every
+            horizon so its ``horizon``-period variance matches the view,
+            keeping the model's term structure, skew and tails. ``None``
+            (default) uses the model's own volatility. For a market view
+            from an implied-vol index, see
+            :class:`~augury.forecasters.ImpliedVolForecaster`.
+        periods_per_year: Periods per year for ``annual_drift`` and
+            ``target_vol`` (252 for
             equities, 365 for 24/7 markets).
         random_state: Seed or Generator.
 
@@ -192,10 +201,27 @@ def forecast_prices(
         raise ValueError(f"Need at least 101 prices, got {values.size}")
 
     model = forecaster if forecaster is not None else default_forecaster()
-    model.fit(returns)
+    history: np.ndarray | pd.Series = returns
+    if model.needs_index:
+        if not isinstance(prices, pd.Series) or not isinstance(prices.index, pd.DatetimeIndex):
+            raise ValueError(f"{model.name} needs prices as a Series with a DatetimeIndex")
+        history = pd.Series(returns, index=prices.dropna().index[-returns.size :])
+    model.fit(history)  # type: ignore[arg-type]  # Series only when needs_index
+    if target_vol is not None and target_vol <= 0:
+        raise ValueError("target_vol must be positive")
     fc = model.predict(
-        returns, range(1, horizon + 1), n_samples=n_samples, random_state=random_state
+        history,  # type: ignore[arg-type]
+        range(1, horizon + 1),
+        n_samples=n_samples,
+        random_state=random_state,
     )
+    if target_vol is not None:
+        # Scale every horizon by the same factor so the horizon-h variance
+        # matches the view (scaling only today's variance would push most of
+        # the change into the first few days; see ImpliedVolForecaster).
+        target = target_vol**2 * horizon / periods_per_year
+        ratio = target / float(np.var(fc.samples[:, -1]))
+        fc = ReturnForecast(fc.horizons, fc.samples * np.sqrt(ratio))
     if annual_drift:
         steps = np.arange(1, horizon + 1, dtype=float)
         shift = annual_drift / periods_per_year * steps

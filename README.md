@@ -1,5 +1,6 @@
 # Augury
 
+[![CI](https://github.com/AndrewFSee/augury/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AndrewFSee/augury/actions/workflows/ci.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
 ![NumPy](https://img.shields.io/badge/numpy-%E2%89%A51.24-013243?logo=numpy&logoColor=white)
@@ -356,6 +357,21 @@ fc.prob_above(750, horizon=21)      # probability SPY closes above $750 in 21 da
 # The default makes no directional call (zero drift). To express a view,
 # e.g. a 5% equity risk premium, pass it explicitly:
 fc = forecast_prices(close, horizon=21, annual_drift=0.05)
+
+# Your own volatility view: scale the forecast so 21-day vol is 25% annualized,
+# keeping the model's term structure, skew and tails
+fc = forecast_prices(close, horizon=21, target_vol=0.25)
+```
+
+**Market volatility views.** Blending GJR with an implied-vol index improved
+out-of-sample CRPS by 0.3–0.8% on SPY, QQQ, IWM and GLD at 1, 5 and 21 days, with
+every 1% VaR backtest still Basel green ([example 32](examples/32_implied_vol_views.py)):
+
+```python
+from augury.forecasters import ImpliedVolForecaster
+
+vix = yf.download("^VIX", period="5y", auto_adjust=True)["Close"].squeeze() / 100
+fc = forecast_prices(close, horizon=21, forecaster=ImpliedVolForecaster(vix, weight=0.5))
 ```
 
 **Why this default?** Every model in the library was scored out of sample with the
@@ -392,11 +408,11 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | `augury.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features |
 | `augury.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
 | `augury.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
-| `augury.forecasters` | **Default entry point.** `forecast_prices`, GJR-GARCH (normal / t / skew-t, the default), filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
+| `augury.forecasters` | **Default entry point.** `forecast_prices` (with `annual_drift` / `target_vol` views), GJR-GARCH (normal / t / skew-t, the default), implied-vol blending, filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
 | `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test, out-of-sample regime-detector evaluation |
 | `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
-| `augury.api` | FastAPI REST + WebSocket server |
+| `augury.api` | FastAPI server: `/risk/{symbol}` (GJR skew-t forecast) and `/regimes/{symbol}` on live prices, `/simulate` for parametric engines; WebSocket streams are synthetic demos |
 | `dashboard` | Streamlit interactive dashboard with Plotly charts |
 | `archive/` | Retired code (regime/ensemble forecasters, Rough Bergomi, forecast-driven allocators) — see [archive/README.md](archive/README.md) |
 
@@ -417,6 +433,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | 29 | `option_pricing` | **MC option pricing** — European / Asian / barrier options, implied vol smile, Greeks |
 | 30 | `stress_testing` | **Stress testing** — correlated GJR skew-t scenarios (Gaussian copula, decaying vol shocks), historical crisis placement |
 | 31 | `model_comparison` | **Model bake-off** — every forecaster scored walk-forward (CRPS, coverage, VaR tests) on 5 ETFs |
+| 32 | `implied_vol_views` | **Implied-vol views** — GJR blended with VIX / VXN / GVZ / MOVE, scored walk-forward against plain GJR |
 
 Examples 06–25 used the archived regime and ensemble forecasters; they live in
 [archive/examples](archive/examples) and run at git tag `pre-augury-archive`.
@@ -468,6 +485,10 @@ Or via a `.env` file in the project root.
 **New modules** — `augury.forecasters` (one `fit`/`predict` interface for GJR, FHS, HAR, Laplace and baselines; correlated multi-asset simulation via `GJRGarchForecaster.simulate`) and `augury.evaluation` (walk-forward harness, CRPS/PIT/coverage, Kupiec/Christoffersen/Basel, Diebold-Mariano).
 
 **Regime detection, evaluated** — `augury.evaluation.regimes` refits a detector on a rolling window and asks whether its signal is useful out of sample. On the same five ETFs (2012–2026) the HMM's crisis probability adds almost nothing to GJR-GARCH: R² for 21-day realized variance goes from 0.329 to 0.337 (0.344 with the multi-feature HMM). GJR's VaR breaches don't cluster by regime, and the regime flag catches drawdowns no earlier than a GJR-volatility flag that fires as often. The univariate HMM switches state 19–80 times a year; the multi-feature HMM (returns, signed vol, momentum) is the only stable one. Treat `augury.regime` as descriptive, not as a forecasting or risk signal. Also fixed: `HMMRegimeDetector.predict_proba_filtered` returned all-zero rows from the first extreme day onward (e.g. SPY +10.5% on 2025-04-09); it now filters in log space. Example 21, which fitted the HMM on its full history, was archived.
+
+**Volatility views** — `forecast_prices(target_vol=...)` sets your own volatility view, and `ImpliedVolForecaster` blends GJR with an implied-vol index (above). Both scale the whole forecast by one factor: rescaling only today's variance and letting GJR mean-revert pushed most of the change into the first few days and doubled 1-day VaR breaches. Example 26's VIX/SKEW/credit experiments predate the walk-forward harness and tune on the data they score; example 32 supersedes its VIX results.
+
+**Cleanup** — one Heston simulator (`HestonModel` now uses `HestonEngine`'s QE scheme); the API's `/risk` and `/regimes` endpoints use real prices for the requested symbol instead of synthetic data.
 
 ---
 

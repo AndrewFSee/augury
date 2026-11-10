@@ -233,9 +233,13 @@ def walk_forward(
     blocks: list[pd.DataFrame] = []
 
     for name, model in models.items():
+        if model.needs_index and not isinstance(labels, pd.DatetimeIndex):
+            raise ValueError(f"{name} needs returns as a Series with a DatetimeIndex")
         cols: dict[str, list[np.ndarray]] = {}
         for t in origins:
             window = r[t - lookback : t]
+            if model.needs_index:
+                window = pd.Series(window, index=labels[t - lookback : t])
             lf = last_fit[name]
             if lf is None or t - lf >= refit_every:
                 try:

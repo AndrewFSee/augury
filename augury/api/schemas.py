@@ -53,9 +53,14 @@ class RegimeResponse(BaseModel):
     """Regime detection response."""
 
     symbol: str
-    current_regime: int = Field(description="Most likely current regime index")
-    regime_proba: list[float] = Field(description="Posterior probabilities for each regime")
-    regime_params: dict[str, dict[str, float]] = Field(description="Fitted parameters per regime")
+    as_of: str | None = Field(default=None, description="Date of the last price used")
+    current_regime: int = Field(
+        description="Most likely current regime; regimes are ordered calm (0) to volatile"
+    )
+    regime_proba: list[float] = Field(description="Filtered probability of each regime today")
+    regime_params: dict[str, dict[str, float]] = Field(
+        description="Annualized mean ('mu') and volatility ('sigma') of returns per regime"
+    )
     n_regimes: int
 
 
@@ -63,11 +68,17 @@ class RiskMetrics(BaseModel):
     """Computed risk metrics for a position."""
 
     symbol: str
-    var_95: float = Field(description="95% VaR (1-year horizon)")
-    cvar_95: float = Field(description="95% CVaR / Expected Shortfall")
+    as_of: str | None = Field(default=None, description="Date of the last price used")
+    horizon_days: int | None = Field(default=None, description="Horizon in trading days")
+    model: str | None = Field(default=None, description="Forecaster that produced the paths")
+    last_price: float | None = Field(default=None, description="Price at the forecast origin")
+    var_95: float = Field(description="95% VaR: 5th percentile simple return over the horizon")
+    cvar_95: float = Field(description="95% expected shortfall (simple return)")
     max_drawdown_mean: float = Field(description="Mean maximum drawdown across paths")
     tail_ratio: float = Field(description="Upper/lower tail ratio")
-    sharpe_estimate: float = Field(description="Approximate Sharpe ratio from simulated paths")
+    sharpe_estimate: float = Field(
+        description="Annualized mean/std of simulated returns; reflects the drift assumption"
+    )
 
 
 class HealthResponse(BaseModel):
