@@ -374,6 +374,22 @@ vix = yf.download("^VIX", period="5y", auto_adjust=True)["Close"].squeeze() / 10
 fc = forecast_prices(close, horizon=21, forecaster=ImpliedVolForecaster(vix, weight=0.5))
 ```
 
+**Earnings days.** The default model does not know when a company reports, so its
+earnings-day forecasts are far too narrow (returns run ~13x the forecast variance).
+`EventForecaster` adds each release's extra variance, sized from the stock's past
+earnings moves. On eight large stocks it improved CRPS by 1.1% at 1 and 5 days and
+15.3% on earnings days, where 1% VaR breaches fell from 16.5% to 2.3%
+([example 33](examples/33_event_days.py)).
+CPI, jobs and FOMC days were tested the same way and did not help.
+
+```python
+from augury.data.events import event_sessions, fetch_earnings_dates
+from augury.forecasters import EventForecaster
+
+events = event_sessions(fetch_earnings_dates("NVDA"))  # pre-market -> that day, after close -> next
+fc = forecast_prices(close, horizon=21, forecaster=EventForecaster(events))
+```
+
 **Why this default?** Every model in the library was scored out of sample with the
 same walk-forward harness (daily, 2012–2026, SPY/QQQ/IWM/TLT/GLD;
 [example 31](examples/31_model_comparison.py)). GJR-GARCH skew-t had the best CRPS at
@@ -408,7 +424,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | `augury.regime` | HMM, Markov-Switching GARCH, GMM clustering, ensemble detectors, regime features |
 | `augury.models` | GARCH, Heston, Merton Jump-Diffusion, HAR-RV (standard/jump/CJ), Bayesian calibration |
 | `augury.simulation` | GBM, Heston, Merton JD, Regime-Switching engines; variance reduction; copulas; GPU |
-| `augury.forecasters` | **Default entry point.** `forecast_prices` (with `annual_drift` / `target_vol` views), GJR-GARCH (normal / t / skew-t, the default), implied-vol blending, filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
+| `augury.forecasters` | **Default entry point.** `forecast_prices` (with `annual_drift` / `target_vol` views), GJR-GARCH (normal / t / skew-t, the default), implied-vol blending, earnings-day events, per-horizon views, filtered historical simulation, HAR, Laplace, Gaussian/EWMA and historical baselines — one `fit` / `predict` interface |
 | `augury.evaluation` | Walk-forward harness, CRPS / PIT / coverage, Kupiec / Christoffersen / Basel backtests, Diebold-Mariano test, out-of-sample regime-detector evaluation |
 | `augury.analytics` | VaR, CVaR, drawdown, MC option pricing, implied vol surface, Greeks, forecast scoring (CRPS/PIT/KS), Synth multi-scale CRPS scoring |
 | `augury.strategy` | Kelly criterion, risk parity, CVaR sizing, regime and momentum signals, hedging, walk-forward backtest |
@@ -434,6 +450,7 @@ res.var_backtest()  # Kupiec / Christoffersen / Basel zone
 | 30 | `stress_testing` | **Stress testing** — correlated GJR skew-t scenarios (Gaussian copula, decaying vol shocks), historical crisis placement |
 | 31 | `model_comparison` | **Model bake-off** — every forecaster scored walk-forward (CRPS, coverage, VaR tests) on 5 ETFs |
 | 32 | `implied_vol_views` | **Implied-vol views** — GJR blended with VIX / VXN / GVZ / MOVE, scored walk-forward against plain GJR |
+| 33 | `event_days` | **Earnings days** as extra variance (`EventForecaster`) and the 9-day VIX for SPY's 1-day horizon (`TermForecaster`) |
 
 Examples 06–25 used the archived regime and ensemble forecasters; they live in
 [archive/examples](archive/examples) and run at git tag `pre-augury-archive`.

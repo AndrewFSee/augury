@@ -77,16 +77,14 @@ class GJRGarchForecaster(ReturnForecaster):
 
         r = np.asarray(returns, dtype=float).ravel()
         r = r[np.isfinite(r)] * self.scale
-        am = arch_model(
-            r,
-            mean="Zero" if self.mean == "zero" else "Constant",
-            vol="GARCH",
-            p=1,
-            o=1 if self.asymmetric else 0,
-            q=1,
-            dist=self.dist,
-            rescale=False,
-        )
+        # arch lowercases these itself; its type hints switched case between releases (8.0:
+        # "GARCH", later: "garch"), so pass them untyped to type-check against either
+        spec: dict[str, Any] = {
+            "mean": "zero" if self.mean == "zero" else "constant",
+            "vol": "garch",
+            "dist": self.dist,
+        }
+        am = arch_model(r, p=1, o=1 if self.asymmetric else 0, q=1, rescale=False, **spec)
         res = am.fit(disp="off", show_warning=False)
         p = res.params
         self._params = {

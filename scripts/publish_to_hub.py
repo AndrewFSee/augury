@@ -10,7 +10,12 @@ Writes data/augury/:
   bands      daily price quantiles for the next 21 trading days (fan chart)
   prices     last year of closes (chart context)
   track      every out-of-sample forecast since TRACK_START with its outcome
-  summary    as_of, models, headline track-record scores per ticker, errors
+  summary    as_of, models, headline track-record scores per ticker, earnings (next release,
+             multiplier, typical earnings-day move, event days inside the 21-day window), errors
+
+Single stocks get their earnings days as extra variance (release dates from Yahoo); SPY's 1-day
+horizon uses the 9-day VIX. A ticker whose model name changed since the last run has its track
+record rebuilt, so old and new forecasts never mix.
 
 The track record is extended each night: only the last few weeks are recomputed (to fill
 in the 5- and 21-day outcomes that closed), so the first run takes several minutes and
@@ -31,9 +36,12 @@ import numpy as np
 import pandas as pd
 
 from augury import __version__
+from augury.data.events import event_sessions, fetch_earnings_dates
+from augury.forecasters.events import EventForecaster
 from augury.forecasters.price import default_forecaster
 from augury.monitoring import (
     IV_VIEWS,
+    SHORT_IV_VIEWS,
     last_final_session,
     live_forecast,
     monitor_model,
@@ -83,6 +91,17 @@ def fetch_real(symbols: list[str]) -> dict[str, pd.Series]:
     return out
 
 
+def fetch_earnings(symbols: list[str]) -> dict[str, pd.DatetimeIndex]:
+    out = {}
+    for s in symbols:
+        e = fetch_earnings_dates(s)
+        if len(e):
+            out[s] = e
+        else:
+            log(f"no earnings dates for {s}")
+    return out
+
+
 def fetch_demo(symbols: list[str]) -> dict[str, pd.Series]:
     """Synthetic GARCH-like prices and a matching vol index; no network."""
     days = pd.bdate_range("2019-01-01", "2026-03-31")
@@ -112,11 +131,15 @@ def main() -> int:
     group_of = {t: g for g, ts in groups.items() for t in ts}
     tickers = [t for t in group_of if not args.only or t in args.only.upper().split(",")]
     iv_symbol = {t: (f"^{t}VOL" if args.demo else IV_VIEWS[t][0]) for t in tickers if t in IV_VIEWS}
+    short_symbol = {} if args.demo else {t: SHORT_IV_VIEWS[t][0] for t in tickers if t in SHORT_IV_VIEWS}
     track_start = "2023-01-01" if args.demo else TRACK_START
 
     t0 = time.time()
-    data = (fetch_demo if args.demo else fetch_real)(tickers + sorted(set(iv_symbol.values())))
-    log(f"fetched {len(data)} series in {time.time() - t0:.0f}s")
+    data = (fetch_demo if args.demo else fetch_real)(
+        tickers + sorted(set(iv_symbol.values()) | set(short_symbol.values())))
+    stocks = [t for t in tickers if group_of[t] == "Single stocks"]
+    earnings = {} if args.demo else fetch_earnings(stocks)
+    log(f"fetched {len(data)} series and earnings for {len(earnings)} stocks in {time.time() - t0:.0f}s")
 
     old_summary = store.load_json(MODULE, "summary") or {}
     previous = None
@@ -124,6 +147,7 @@ def main() -> int:
         previous = store.load_frame(MODULE, "track")
 
     forecasts, bands, prices, tracks, scores, models, errors = [], [], [], [], {}, {}, {}
+    earnings_info: dict[str, dict] = {}
     for t in tickers:
         try:
             close = data.get(t)
@@ -131,10 +155,25 @@ def main() -> int:
                 raise ValueError(f"not enough price history ({0 if close is None else len(close)} days)")
             iv = data.get(iv_symbol.get(t, ""))
             iv = iv / 100.0 if iv is not None else None
-            model = monitor_model(t, iv)
+            short = data.get(short_symbol.get(t, ""))
+            r = np.log(close).diff().dropna()
+            kw = {"short_implied_vol": short / 100.0 if short is not None else None,
+                  "earnings": earnings.get(t), "returns_history": r}
+            model = monitor_model(t, iv, **kw)
             risk, band = live_forecast(close, model)
             gjr_risk, _ = live_forecast(close, default_forecaster(), n_samples=5000)
-            r = np.log(close).diff().dropna()
+            if isinstance(model, EventForecaster):
+                sessions = event_sessions(earnings[t])
+                upcoming = earnings[t][sessions > close.index[-1]]
+                earnings_info[t] = {
+                    "next_release": upcoming[0].isoformat() if len(upcoming) else None,
+                    "next_session": str(sessions[sessions > close.index[-1]][0].date()) if len(upcoming) else None,
+                    "multiplier": round(model.multiplier, 2),
+                    # typical earnings-day move (sd of the log return), from the stock's past releases
+                    "move_sd": (round(float(np.sqrt(model.event_variance)), 4)
+                                if model.event_variance is not None else None),
+                    "event_days": model.last_event_days,  # trading days ahead, within the 21-day window
+                }
             risk = risk.assign(ticker=t, group=group_of[t], gjr_vol_ann=gjr_risk["vol_ann"].to_numpy(),
                                realised_vol_21d=float(r.iloc[-21:].std() * np.sqrt(252)),
                                iv=float(iv.dropna().iloc[-1]) if iv is not None and t in IV_VIEWS else np.nan,
@@ -145,7 +184,10 @@ def main() -> int:
                                         "close": close.to_numpy()[-260:]}))
 
             prev = None if previous is None else previous[previous["ticker"] == t].drop(columns="ticker")
-            rec = track_record(close, track_models(t, iv), start=track_start, previous=prev)
+            if prev is not None and old_summary.get("models", {}).get(t) != model.name:
+                log(f"{t}: model changed ({old_summary.get('models', {}).get(t)} -> {model.name}), rebuilding its track")
+                prev = None
+            rec = track_record(close, track_models(t, iv, **kw), start=track_start, previous=prev)
             tracks.append(rec.assign(ticker=t))
             base = "gjr" if (rec["model"] == "gjr").any() else None
             scores[t] = score_track(rec, "augury", baseline=base)
@@ -175,6 +217,11 @@ def main() -> int:
     if args.only:
         scores = {**old_summary.get("scores", {}), **scores}
         models = {**old_summary.get("models", {}), **models}
+        keep = lambda d: {k: v for k, v in d.items() if k not in tickers}  # noqa: E731
+        iv_symbol = {**keep(old_summary.get("iv_views", {})), **iv_symbol}
+        short_symbol = {**keep(old_summary.get("short_iv_views", {})), **short_symbol}
+        earnings_info = {**{k: v for k, v in old_summary.get("earnings", {}).items() if k not in tickers},
+                         **earnings_info}
     store.save_json(MODULE, "summary", {
         "as_of": fc["as_of"].max(),
         "published": datetime.now().isoformat(timespec="seconds"),
@@ -183,6 +230,8 @@ def main() -> int:
         "groups": groups,
         "models": models,
         "iv_views": iv_symbol,
+        "short_iv_views": short_symbol,
+        "earnings": earnings_info,
         "track_start": track_start,
         "scores": scores,
         "errors": errors,

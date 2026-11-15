@@ -11,29 +11,39 @@ by 0.3-0.6% on SPY, QQQ, IWM and GLD with every 1% VaR backtest in the Basel
 green zone. TLT uses MOVE (a Treasury vol index, not TLT's own), so its view
 is calibrated to TLT's realised variance first. Every other asset uses
 plain GJR.
+
+Two additions, each validated in a 2016-2026 walk-forward: SPY's 1-day horizon
+uses CBOE's 9-day VIX instead of the 30-day one (:data:`SHORT_IV_VIEWS`,
+:class:`~augury.forecasters.TermForecaster`), and single stocks get their
+earnings days as extra variance (:class:`~augury.forecasters.EventForecaster`)
+when their release dates are passed in.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
+from augury.data.events import event_sessions
 from augury.evaluation.walk_forward import WalkForwardResult, walk_forward
 from augury.forecasters.base import ReturnForecaster
+from augury.forecasters.events import EventForecaster
 from augury.forecasters.price import (
     DEFAULT_LOOKBACK,
     PriceForecast,
     default_forecaster,
     forecast_prices,
 )
-from augury.forecasters.views import ImpliedVolForecaster
+from augury.forecasters.views import ImpliedVolForecaster, TermForecaster
 
 __all__ = [
     "IV_VIEWS",
+    "SHORT_IV_VIEWS",
     "last_final_session",
     "HORIZONS",
     "monitor_model",
@@ -51,6 +61,11 @@ IV_VIEWS: dict[str, tuple[str, bool]] = {
     "IWM": ("^VIX", False),
     "TLT": ("^MOVE", True),
     "GLD": ("^GVZ", False),
+}
+
+#: Ticker -> (short-dated implied-vol index, its tenor in trading days), used for the 1-day horizon.
+SHORT_IV_VIEWS: dict[str, tuple[str, int]] = {
+    "SPY": ("^VIX9D", 6),
 }
 
 #: Horizons (trading days) shown and scored.
@@ -93,18 +108,47 @@ def last_final_session(now: datetime | None = None) -> date:
     return d
 
 
-def monitor_model(ticker: str, implied_vol: pd.Series | None = None) -> ReturnForecaster:
+def monitor_model(
+    ticker: str,
+    implied_vol: pd.Series | None = None,
+    *,
+    short_implied_vol: pd.Series | None = None,
+    earnings: Sequence[pd.Timestamp] | pd.DatetimeIndex | None = None,
+    returns_history: pd.Series | None = None,
+) -> ReturnForecaster:
     """The model the monitor uses for ``ticker`` (a fresh, unfitted instance).
 
     Args:
         ticker: Asset symbol.
         implied_vol: The asset's implied-vol index as a decimal (0.20 = 20%),
             dated. Only used for tickers in :data:`IV_VIEWS`.
+        short_implied_vol: Short-dated implied vol (decimal, dated) for the
+            1-day horizon. Only used for tickers in :data:`SHORT_IV_VIEWS`, and
+            only together with ``implied_vol``.
+        earnings: Earnings release times (e.g. from
+            :func:`augury.data.events.fetch_earnings_dates`); when given and not
+            empty, earnings days get their extra variance.
+        returns_history: Dated log returns for estimating the earnings
+            multiplier from more events than one fit window holds.
     """
-    view = IV_VIEWS.get(ticker.upper())
+    t = ticker.upper()
+    model: ReturnForecaster = default_forecaster()
+    view = IV_VIEWS.get(t)
     if view is not None and implied_vol is not None and not implied_vol.dropna().empty:
-        return ImpliedVolForecaster(implied_vol.dropna(), weight=0.5, calibrate=view[1])
-    return default_forecaster()
+        model = ImpliedVolForecaster(implied_vol.dropna(), weight=0.5, calibrate=view[1])
+        short = SHORT_IV_VIEWS.get(t)
+        if (
+            short is not None
+            and short_implied_vol is not None
+            and not short_implied_vol.dropna().empty
+        ):
+            day = ImpliedVolForecaster(short_implied_vol.dropna(), weight=0.5, iv_horizon=short[1])
+            model = TermForecaster(model, {1: day}, name="gjr+iv0.5+short1d")
+    if earnings is not None and len(earnings):
+        model = EventForecaster(
+            event_sessions(earnings), model, history=returns_history, name=f"{model.name}+earnings"
+        )
+    return model
 
 
 def live_forecast(
@@ -314,9 +358,14 @@ def score_track(
     return out
 
 
-def track_models(ticker: str, implied_vol: pd.Series | None = None) -> dict[str, ReturnForecaster]:
-    """Models to track for ``ticker``: the monitor's model, plus plain GJR when it has a view."""
-    model = monitor_model(ticker, implied_vol)
-    if isinstance(model, ImpliedVolForecaster):
+def track_models(
+    ticker: str,
+    implied_vol: pd.Series | None = None,
+    **kwargs: Any,
+) -> dict[str, ReturnForecaster]:
+    """Models to track for ``ticker``: the monitor's model (``kwargs`` as for
+    :func:`monitor_model`), plus plain GJR when the monitor's model is not plain GJR."""
+    model = monitor_model(ticker, implied_vol, **kwargs)
+    if isinstance(model, (ImpliedVolForecaster, TermForecaster, EventForecaster)):
         return {"augury": model, "gjr": default_forecaster()}
     return {"augury": model}

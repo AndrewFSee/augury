@@ -15,6 +15,7 @@ from augury.forecasters.baselines import (
     HistoricalSimulation,
     LaplaceForecaster,
 )
+from augury.forecasters.events import EventForecaster, event_multiplier
 from augury.forecasters.gjr import FilteredHistoricalSimulation, GJRGarchForecaster
 from augury.forecasters.har import HARForecaster
 from augury.forecasters.price import (
@@ -23,7 +24,7 @@ from augury.forecasters.price import (
     default_forecaster,
     forecast_prices,
 )
-from augury.forecasters.views import ImpliedVolForecaster
+from augury.forecasters.views import ImpliedVolForecaster, TermForecaster
 
 __all__ = [
     "forecast_prices",
@@ -40,4 +41,7 @@ __all__ = [
     "HARForecaster",
     "PathModelForecaster",
     "ImpliedVolForecaster",
+    "TermForecaster",
+    "EventForecaster",
+    "event_multiplier",
 ]
