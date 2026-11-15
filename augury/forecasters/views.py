@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Literal
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import pandas as pd
 from augury.forecasters.base import ReturnForecast, ReturnForecaster
 from augury.forecasters.gjr import GJRGarchForecaster
 
-__all__ = ["ImpliedVolForecaster"]
+__all__ = ["ImpliedVolForecaster", "TermForecaster"]
 
 
 def _as_dated(history: np.ndarray | pd.Series, what: str) -> pd.Series:
@@ -160,3 +160,72 @@ class ImpliedVolForecaster(ReturnForecaster):
         self.last_scale = ratio
         fc = self.base.predict(x, horizons, n_samples, random_state)
         return ReturnForecast(fc.horizons, fc.samples * np.sqrt(ratio))
+
+
+class TermForecaster(ReturnForecaster):
+    """Use a different forecaster for some horizons, e.g. a shorter-dated implied vol for 1 day.
+
+    Each horizon is forecast by the model in ``by_horizon`` for it, or by ``default``.
+    The draws of different horizons then come from different models, so they are not
+    one consistent path; use it for per-horizon risk numbers, not for path statistics.
+
+    Evidence (walk-forward 2016-2026, SPY): the 1-day horizon scored 0.23% better CRPS
+    (t -3.3, -0.21% in 2016-20, -0.24% in 2021-26) with the view built on CBOE's 9-day
+    VIX (``^VIX9D``, tenor 6 trading days) than on the 30-day VIX; at 5 and 21 days the
+    9-day view did not help.
+
+    Args:
+        default: Forecaster for every horizon not in ``by_horizon``.
+        by_horizon: Horizon -> forecaster.
+        name: Label for evaluation tables.
+    """
+
+    def __init__(
+        self,
+        default: ReturnForecaster,
+        by_horizon: Mapping[int, ReturnForecaster],
+        *,
+        name: str | None = None,
+    ) -> None:
+        self.default = default
+        self.by_horizon = {int(h): m for h, m in by_horizon.items()}
+        models = [default, *self.by_horizon.values()]
+        self.needs_index = any(getattr(m, "needs_index", False) for m in models)
+        self.name = name or f"{default.name}+term"
+
+    def _models(self) -> list[ReturnForecaster]:
+        seen: dict[int, ReturnForecaster] = {}
+        for m in (self.default, *self.by_horizon.values()):
+            seen.setdefault(id(m), m)
+        return list(seen.values())
+
+    @staticmethod
+    def _input(model: ReturnForecaster, x: pd.Series | np.ndarray) -> Any:
+        if getattr(model, "needs_index", False):
+            return x
+        return x.to_numpy(dtype=float) if isinstance(x, pd.Series) else np.asarray(x, dtype=float)
+
+    def fit(self, returns: pd.Series | np.ndarray) -> TermForecaster:
+        for m in self._models():
+            m.fit(self._input(m, returns))
+        return self
+
+    def predict(
+        self,
+        history: pd.Series | np.ndarray,
+        horizons: Sequence[int],
+        n_samples: int = 2000,
+        random_state: int | np.random.Generator | None = None,
+    ) -> ReturnForecast:
+        rng = np.random.default_rng(random_state)
+        hs = tuple(sorted({int(h) for h in horizons}))
+        groups: dict[int, tuple[ReturnForecaster, list[int]]] = {}
+        for h in hs:
+            m = self.by_horizon.get(h, self.default)
+            groups.setdefault(id(m), (m, []))[1].append(h)
+        out = np.empty((n_samples, len(hs)))
+        for m, mh in groups.values():
+            fc = m.predict(self._input(m, history), mh, n_samples, rng)
+            for h in mh:
+                out[:, hs.index(h)] = fc.at(h)
+        return ReturnForecast(hs, out)
